@@ -12,6 +12,8 @@ export const CreateProxyInputSchema = z.object({
   password: z.string().max(2048).nullable().optional()
 });
 
+export const UpdateProxyInputSchema = CreateProxyInputSchema.partial();
+
 export interface CreateProxyInput {
   name: string;
   type: ProxyType;
@@ -20,6 +22,8 @@ export interface CreateProxyInput {
   username?: string | null;
   password?: string | null;
 }
+
+export type UpdateProxyInput = Partial<CreateProxyInput>;
 
 export interface Proxy {
   id: string;

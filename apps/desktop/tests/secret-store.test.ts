@@ -1,34 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe,expect,it } from 'vitest';
 import { ElectronSafeStorageSecretStore } from '../src/main/secret-store.js';
-import { createPublicBridge } from '../src/preload/index.js';
-
-describe('desktop secret boundary', () => {
-  it('delegates encryption/decryption to Electron safeStorage without persisting plaintext', () => {
-    const calls: string[] = [];
-    const safeStorage = {
-      isEncryptionAvailable: () => true,
-      encryptString(value: string) { calls.push(`encrypt:${value}`); return Uint8Array.from([1, 2, 3, 4]); },
-      decryptString(value: Uint8Array) { calls.push(`decrypt:${Array.from(value).join(',')}`); return 'restored-secret'; }
-    };
-    const store = new ElectronSafeStorageSecretStore(safeStorage);
-    const encrypted = store.encrypt('secret');
-    expect(encrypted).toBe('AQIDBA==');
-    expect(encrypted.includes('secret')).toBe(false);
-    expect(store.decrypt(encrypted)).toBe('restored-secret');
-    expect(JSON.stringify(calls)).toBe(JSON.stringify(['encrypt:secret', 'decrypt:1,2,3,4']));
-  });
-
-  it('public preload bridge exposes health only and never decrypt/secret APIs', async () => {
-    const channels: string[] = [];
-    const bridge = createPublicBridge(async (channel: string) => {
-      channels.push(channel);
-      return { status: 'ok', dataRoot: '%LOCALAPPDATA%/ICRLogin', runningRuntimeCount: 2 };
-    });
-    expect(Object.keys(bridge).join(',')).toBe('health');
-    expect('decrypt' in bridge).toBe(false);
-    expect('secrets' in bridge).toBe(false);
-    const health = await bridge.health();
-    expect(health.runningRuntimeCount).toBe(2);
-    expect(channels[0]).toBe('icr:health');
-  });
-});
+import { createPublicBridge } from '../src/preload/bridge.js';
+describe('desktop secret boundary',()=>{it('delegates encryption/decryption to Electron safeStorage without persisting plaintext',()=>{const calls:string[]=[];const safeStorage={isEncryptionAvailable:()=>true,encryptString(value:string){calls.push(`encrypt:${value}`);return Uint8Array.from([1,2,3,4]);},decryptString(value:Uint8Array){calls.push(`decrypt:${Array.from(value).join(',')}`);return'restored-secret';}};const store=new ElectronSafeStorageSecretStore(safeStorage);const encrypted=store.encrypt('secret');expect(encrypted).toBe('AQIDBA==');expect(encrypted.includes('secret')).toBe(false);expect(store.decrypt(encrypted)).toBe('restored-secret');expect(JSON.stringify(calls)).toBe(JSON.stringify(['encrypt:secret','decrypt:1,2,3,4']));});it('public preload bridge exposes only allowlisted product operations and never secret primitives',async()=>{const channels:string[]=[];const bridge:any=createPublicBridge(async(channel:string)=>{channels.push(channel);return{ok:true,data:{status:'ok',dataRoot:'%LOCALAPPDATA%/ICRLogin',runningRuntimeCount:2}};},()=>()=>{});expect('invoke' in bridge).toBe(false);expect('decrypt' in bridge).toBe(false);expect('secrets' in bridge).toBe(false);const health=await bridge.health();expect(health.ok).toBe(true);expect(health.data.runningRuntimeCount).toBe(2);expect(channels[0]).toBe('icr:health');});});

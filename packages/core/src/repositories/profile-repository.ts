@@ -85,28 +85,22 @@ export class ProfileRepository {
         last_used_at, deleted_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      profile.id,
-      profile.name,
-      profile.description ?? null,
-      profile.groupId ?? null,
-      profile.browserVersion,
-      profile.proxyId ?? null,
-      profile.userAgent ?? null,
-      profile.language ?? 'en-US',
-      profile.timezone ?? 'UTC',
-      profile.windowWidth ?? 1280,
-      profile.windowHeight ?? 800,
-      profile.screenWidth ?? 1920,
-      profile.screenHeight ?? 1080,
-      profile.webrtcEnabled === false ? 0 : 1,
-      profile.geolocationMode ?? 'ask',
-      JSON.stringify(profile.startupUrls ?? []),
-      profile.createdAt,
-      profile.updatedAt,
-      profile.lastUsedAt,
-      profile.deletedAt
+      profile.id, profile.name, profile.description ?? null, profile.groupId ?? null,
+      profile.browserVersion, profile.proxyId ?? null, profile.userAgent ?? null,
+      profile.language ?? 'en-US', profile.timezone ?? 'UTC', profile.windowWidth ?? 1280,
+      profile.windowHeight ?? 800, profile.screenWidth ?? 1920, profile.screenHeight ?? 1080,
+      profile.webrtcEnabled === false ? 0 : 1, profile.geolocationMode ?? 'ask',
+      JSON.stringify(profile.startupUrls ?? []), profile.createdAt, profile.updatedAt,
+      profile.lastUsedAt, profile.deletedAt
     );
     return profile;
+  }
+
+  list(options: { includeDeleted?: boolean } = {}): Profile[] {
+    const sql = options.includeDeleted
+      ? 'SELECT * FROM profiles ORDER BY COALESCE(last_used_at, created_at) DESC, name COLLATE NOCASE'
+      : 'SELECT * FROM profiles WHERE deleted_at IS NULL ORDER BY COALESCE(last_used_at, created_at) DESC, name COLLATE NOCASE';
+    return (this.db.prepare(sql).all() as ProfileRow[]).map(mapRow);
   }
 
   getById(id: string, options: { includeDeleted?: boolean } = {}): Profile | null {
@@ -118,12 +112,8 @@ export class ProfileRepository {
   }
 
   update(id: string, input: UpdateProfileInput, updatedAt = new Date().toISOString()): Profile | null {
-    const entries = Object.entries(input).filter(([, value]) => value !== undefined) as Array<[
-      keyof UpdateProfileInput,
-      unknown
-    ]>;
+    const entries = Object.entries(input).filter(([, value]) => value !== undefined) as Array<[keyof UpdateProfileInput, unknown]>;
     if (entries.length === 0) return this.getById(id, { includeDeleted: true });
-
     const assignments = entries.map(([key]) => `${UPDATE_COLUMNS[key]} = ?`);
     const values = entries.map(([key, value]) => toDbValue(key, value));
     assignments.push('updated_at = ?');
