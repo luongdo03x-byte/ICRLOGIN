@@ -22,7 +22,7 @@ async function until(check: () => boolean): Promise<void> {
 }
 
 describe('BrowserService lifecycle state', () => {
-  it('reports starting/running/stopping/stopped across one lifecycle', async () => {
+  it('reports lifecycle state and records last-used only after a successful start', async () => {
     const root = await mkdtemp(join(tmpdir(), 'icrlogin-browser-state-'));
     const profileId = 'state-profile';
     const profilesDir = join(root, 'profiles');
@@ -40,6 +40,7 @@ describe('BrowserService lifecycle state', () => {
     const closeReady = deferred<void>();
     const registry = new ProcessRegistry();
     const runtimeRows = new Map<string, BrowserRuntimeInfo>();
+    const lastUsed: string[] = [];
     let exitListener: ((code: number | null, signal: string | null) => void) | null = null;
     const emitExit = () => exitListener?.(0, null);
     const handle = {
@@ -50,7 +51,10 @@ describe('BrowserService lifecycle state', () => {
     };
 
     const service = new BrowserService({
-      profiles: { getById: (id: string) => id === profileId ? profile : null },
+      profiles: {
+        getById: (id: string) => id === profileId ? profile : null,
+        markLastUsed: (id: string, usedAt: string) => { if (id === profileId) lastUsed.push(usedAt); }
+      },
       browserVersions: { async ensureInstalled() { return { version: '143', executablePath: 'chrome.exe', sha256: 'a'.repeat(64), artifactSize: 1, installedAt: '2026-09-28T00:00:00.000Z' }; } },
       proxies: { async getRuntimeConfig() { throw new Error('proxy not expected'); } },
       portAllocator: { async reserve() { return 43127; }, async release() {} },
@@ -73,9 +77,11 @@ describe('BrowserService lifecycle state', () => {
       const start = service.start(profileId);
       await until(() => service.getState(profileId) === 'starting');
       expect(service.getState(profileId)).toBe('starting');
+      expect(lastUsed).toHaveLength(0);
       cdpReady.resolve('ws://127.0.0.1:43127/devtools/browser/test');
-      await start;
+      const runtime = await start;
       expect(service.getState(profileId)).toBe('running');
+      expect(lastUsed).toEqual([runtime.startedAt]);
 
       const stop = service.stop(profileId);
       await until(() => service.getState(profileId) === 'stopping');
