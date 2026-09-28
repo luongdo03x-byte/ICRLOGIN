@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "tsc -b --pretty false",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "lint": "eslint ."
   },
   "devDependencies": {
