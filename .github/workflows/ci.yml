@@ -3,7 +3,8 @@ name: CI
 on:
   push:
     branches:
-      - feat/phase-1-core-browser-proxy
+      - main
+      - 'feat/**'
   pull_request:
     branches:
       - main
@@ -16,10 +17,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install
-      - run: npm test -w @icrlogin/shared
-      - run: npm run typecheck
-      - run: npm run lint
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test all workspaces
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Build desktop
+        run: npm run build -w @icrlogin/desktop
       - if: always()
         uses: actions/upload-artifact@v4
         with:
