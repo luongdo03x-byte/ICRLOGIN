@@ -9,7 +9,7 @@ Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CD
 Prerequisites: Windows 10/11 x64 for production smoke testing, Node.js 22+, and npm.
 
 ```powershell
-npm ci
+npm install
 npm run lint
 npm run typecheck
 npm test
