@@ -17,7 +17,7 @@ export function ProxyPage() {
   }
 
   async function remove(proxy: ProxyPublic) {
-    if (!window.confirm(`Delete proxy “${proxy.name}”? Profiles using it will keep running without changing their current process, but future starts will need another proxy assignment.`)) return;
+    if (!window.confirm(`Delete proxy “${proxy.name}”? Running Chromium processes are not changed. Profiles assigned to this proxy will switch to Direct for future starts unless you assign another proxy.`)) return;
     await deleteProxy.mutateAsync(proxy.id);
   }
 
