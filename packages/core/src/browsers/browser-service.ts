@@ -12,6 +12,7 @@ import { closeBrowserOverCdp } from './cdp-client.js';
 
 interface ProfileReader {
   getById(id: string): Profile | null;
+  markLastUsed?(id: string, usedAt: string): void;
 }
 
 interface BrowserVersionResolver {
@@ -163,6 +164,7 @@ export class BrowserService {
             await this.cleanupRuntime(profileId, handle.pid);
             throw new AppError('BROWSER_START_FAILED', 'Chromium exited while runtime state was being registered');
           }
+          this.deps.profiles.markLastUsed?.(profileId, runtime.startedAt);
           return runtime;
         } catch (error) {
           if (portReserved) await this.deps.portAllocator.release(port).catch(() => undefined);
