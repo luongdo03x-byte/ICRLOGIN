@@ -40,12 +40,13 @@ describe('BrowserService lifecycle state', () => {
     const closeReady = deferred<void>();
     const registry = new ProcessRegistry();
     const runtimeRows = new Map<string, BrowserRuntimeInfo>();
-    let exitListener: (() => void) | null = null;
+    let exitListener: ((code: number | null, signal: string | null) => void) | null = null;
+    const emitExit = () => exitListener?.(0, null);
     const handle = {
       pid: 4242,
-      onExit(listener: () => void) { exitListener = listener; },
+      onExit(listener: (code: number | null, signal: string | null) => void) { exitListener = listener; },
       async requestClose() {},
-      async forceTerminate() { exitListener?.(); }
+      async forceTerminate() { emitExit(); }
     };
 
     const service = new BrowserService({
@@ -55,7 +56,7 @@ describe('BrowserService lifecycle state', () => {
       portAllocator: { async reserve() { return 43127; }, async release() {} },
       launcher: { spawn() { return handle; } },
       cdpWaiter: async () => cdpReady.promise,
-      cdpCloser: async () => { await closeReady.promise; exitListener?.(); },
+      cdpCloser: async () => { await closeReady.promise; emitExit(); },
       registry,
       operationLock: new ProfileOperationLock(),
       runtimeSessions: {
