@@ -1,6 +1,6 @@
 import { writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError, type BrowserRuntimeInfo, type Profile } from '@icrlogin/shared';
+import { AppError, type BrowserRuntimeInfo, type BrowserRuntimeState, type Profile } from '@icrlogin/shared';
 import type { AppPaths } from '../app-paths.js';
 import type { InstalledBrowser } from './artifact-provider.js';
 import type { ChildProcessHandle, ChromiumLaunchInput } from './chromium-launcher.js';
@@ -33,6 +33,7 @@ interface ChromiumLauncherLike {
 
 export type CdpWaiter = (baseUrl: string, timeoutMs: number, signal: AbortSignal) => Promise<string>;
 export type CdpCloser = (webSocketUrl: string, timeoutMs: number) => Promise<void>;
+export type BrowserLifecycleState = 'stopped' | BrowserRuntimeState;
 
 export interface BrowserServiceDependencies {
   profiles: ProfileReader;
@@ -61,6 +62,7 @@ function timeout(ms: number): Promise<'timeout'> {
 
 export class BrowserService {
   private readonly starting = new Set<string>();
+  private readonly stopping = new Set<string>();
   private readonly processes = new Map<string, ManagedProcess>();
   private readonly cdpTimeoutMs: number;
   private readonly stopGraceMs: number;
@@ -74,6 +76,12 @@ export class BrowserService {
 
   getRuntime(profileId: string): BrowserRuntimeInfo | null {
     return this.deps.registry.get(profileId) ?? null;
+  }
+
+  getState(profileId: string): BrowserLifecycleState {
+    if (this.starting.has(profileId)) return 'starting';
+    if (this.stopping.has(profileId)) return 'stopping';
+    return this.deps.registry.get(profileId)?.state ?? 'stopped';
   }
 
   async start(profileId: string): Promise<BrowserRuntimeInfo> {
@@ -169,31 +177,36 @@ export class BrowserService {
   }
 
   async stop(profileId: string): Promise<void> {
-    await this.deps.operationLock.runExclusive(profileId, async () => {
-      const runtime = this.deps.registry.get(profileId);
-      if (!runtime) throw new AppError('PROFILE_NOT_RUNNING', 'Profile is not running');
-      const process = this.processes.get(profileId);
+    this.stopping.add(profileId);
+    try {
+      await this.deps.operationLock.runExclusive(profileId, async () => {
+        const runtime = this.deps.registry.get(profileId);
+        if (!runtime) throw new AppError('PROFILE_NOT_RUNNING', 'Profile is not running');
+        const process = this.processes.get(profileId);
 
-      try {
-        await this.cdpCloser(runtime.webSocketDebuggerUrl, this.stopGraceMs);
-      } catch (error) {
-        if (!process) {
-          throw new AppError('INTERNAL_ERROR', 'Unable to close recovered Chromium runtime', {
-            cause: error instanceof Error ? error.message : String(error)
-          });
+        try {
+          await this.cdpCloser(runtime.webSocketDebuggerUrl, this.stopGraceMs);
+        } catch (error) {
+          if (!process) {
+            throw new AppError('INTERNAL_ERROR', 'Unable to close recovered Chromium runtime', {
+              cause: error instanceof Error ? error.message : String(error)
+            });
+          }
+          await process.handle.requestClose();
         }
-        await process.handle.requestClose();
-      }
 
-      if (process) {
-        const first = await Promise.race([process.exitPromise.then(() => 'exit' as const), timeout(this.stopGraceMs)]);
-        if (first === 'timeout') {
-          await process.handle.forceTerminate();
-          await Promise.race([process.exitPromise, timeout(Math.min(this.stopGraceMs, 1000))]);
+        if (process) {
+          const first = await Promise.race([process.exitPromise.then(() => 'exit' as const), timeout(this.stopGraceMs)]);
+          if (first === 'timeout') {
+            await process.handle.forceTerminate();
+            await Promise.race([process.exitPromise, timeout(Math.min(this.stopGraceMs, 1000))]);
+          }
         }
-      }
-      await this.cleanupRuntime(profileId, runtime.pid);
-    });
+        await this.cleanupRuntime(profileId, runtime.pid);
+      });
+    } finally {
+      this.stopping.delete(profileId);
+    }
   }
 
   private runtimeLockPath(profileId: string): string {
