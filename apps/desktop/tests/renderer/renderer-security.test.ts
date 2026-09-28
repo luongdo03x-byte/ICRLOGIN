@@ -22,4 +22,12 @@ describe('renderer security boundary', () => {
       expect(forbidden.some((pattern) => pattern.test(source))).toBe(false);
     }
   });
+
+  it('ships a renderer CSP that blocks arbitrary scripts and eval', async () => {
+    const htmlPath = join(dirname(fileURLToPath(import.meta.url)), '../../src/renderer/index.html');
+    const html = await readFile(htmlPath, 'utf8');
+    expect(html.includes('Content-Security-Policy')).toBe(true);
+    expect(html.includes("script-src 'self'" )).toBe(true);
+    expect(html.includes("'unsafe-eval'" )).toBe(false);
+  });
 });
