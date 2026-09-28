@@ -26,7 +26,13 @@ function statusLabel(state: string): string {
 }
 
 function canDeleteProfile(state: string): boolean {
-  return state === 'stopped' || state === 'crashed';
+  return state === 'stopped';
+}
+
+function actionLabel(state: string, action: 'start' | 'stop' | null): string {
+  if (action === 'stop') return 'Stop';
+  if (action === 'start') return 'Open';
+  return state === 'starting' || state === 'stopping' ? 'Working…' : 'Unavailable';
 }
 
 export function ProfilesPage({ onCreate, onEdit }: ProfilesPageProps) {
@@ -154,7 +160,7 @@ export function ProfilesPage({ onCreate, onEdit }: ProfilesPageProps) {
               <td className="truncate-cell" title={row.userAgent ?? 'Default'}>{row.userAgent ?? 'Default'}</td>
               <td className="muted">{formatLastUsed(row.lastUsedAt)}</td>
               <td><div className="row-actions">
-                <button className={nextAction === 'stop' ? 'btn danger-soft' : 'btn success-soft'} disabled={action.isPending || nextAction === null} onClick={() => { if (nextAction) action.mutate({ id: row.id, kind: nextAction }); }}>{nextAction === 'stop' ? 'Stop' : nextAction === 'start' ? 'Open' : 'Working…'}</button>
+                <button className={nextAction === 'stop' ? 'btn danger-soft' : 'btn success-soft'} disabled={action.isPending || nextAction === null} onClick={() => { if (nextAction) action.mutate({ id: row.id, kind: nextAction }); }}>{actionLabel(row.runtimeState, nextAction)}</button>
                 <button className="icon-btn" aria-label={`Edit ${row.name}`} onClick={() => onEdit?.(row)}>Edit</button>
                 <button className="icon-btn" aria-label={`Delete ${row.name}`} disabled={!canDeleteProfile(row.runtimeState) || remove.isPending} onClick={() => remove.mutate(row.id)}>Delete</button>
               </div></td>
