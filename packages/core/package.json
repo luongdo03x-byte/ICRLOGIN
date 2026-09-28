@@ -5,10 +5,12 @@
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration:chromium": "vitest run tests/chromium.integration.test.ts"
   },
   "dependencies": {
     "@icrlogin/shared": "0.1.0",
-    "better-sqlite3": "^12.4.1"
+    "better-sqlite3": "^12.4.1",
+    "yauzl": "^3.2.0"
   }
 }

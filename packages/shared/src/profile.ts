@@ -20,7 +20,7 @@ export const CreateProfileInputSchema = z.object({
   screenHeight: optionalPositiveInt,
   webrtcEnabled: z.boolean().optional(),
   geolocationMode: GeolocationModeSchema.optional(),
-  startupUrls: z.array(z.string().url()).optional(),
+  startupUrls: z.array(z.string().url().regex(/^https?:\/\//i)).optional(),
   description: z.string().max(2000).nullable().optional()
 });
 
@@ -38,7 +38,7 @@ export const UpdateProfileInputSchema = z.object({
   screenHeight: optionalPositiveInt,
   webrtcEnabled: z.boolean().optional(),
   geolocationMode: GeolocationModeSchema.optional(),
-  startupUrls: z.array(z.string().url()).optional(),
+  startupUrls: z.array(z.string().url().regex(/^https?:\/\//i)).optional(),
   description: z.string().max(2000).nullable().optional()
 });
 
@@ -62,10 +62,41 @@ export interface CreateProfileInput {
 
 export type UpdateProfileInput = Partial<CreateProfileInput>;
 
-export interface Profile extends CreateProfileInput {
+export interface Profile {
   id: string;
+  name: string;
+  description: string | null;
+  groupId: string | null;
+  browserVersion: string;
+  proxyId: string | null;
+  userAgent: string | null;
+  language: string;
+  timezone: string;
+  windowWidth: number;
+  windowHeight: number;
+  screenWidth: number;
+  screenHeight: number;
+  webrtcEnabled: boolean;
+  geolocationMode: GeolocationMode;
+  startupUrls: string[];
   createdAt: string;
   updatedAt: string;
   lastUsedAt: string | null;
   deletedAt: string | null;
 }
+
+export const PROFILE_DEFAULTS = {
+  groupId: null,
+  proxyId: null,
+  userAgent: null,
+  language: 'en-US',
+  timezone: 'UTC',
+  windowWidth: 1280,
+  windowHeight: 800,
+  screenWidth: 1920,
+  screenHeight: 1080,
+  webrtcEnabled: true,
+  geolocationMode: 'ask' as GeolocationMode,
+  startupUrls: [] as readonly string[],
+  description: null
+} as const;

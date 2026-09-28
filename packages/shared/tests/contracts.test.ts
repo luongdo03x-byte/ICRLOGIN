@@ -10,6 +10,11 @@ describe('shared contracts', () => {
     expect(() => CreateProfileInputSchema.parse({ name: '', browserVersion: '143.0.0' })).toThrow();
   });
 
+  it('accepts only http/https startup URLs', () => {
+    expect(CreateProfileInputSchema.parse({ name: 'QA', browserVersion: '143.0.0', startupUrls: ['https://example.test/'] }).startupUrls?.[0]).toBe('https://example.test/');
+    expect(() => CreateProfileInputSchema.parse({ name: 'QA', browserVersion: '143.0.0', startupUrls: ['ftp://example.test/file'] })).toThrow();
+  });
+
   it('rejects unsupported proxy protocols', () => {
     expect(() => CreateProxyInputSchema.parse({ name: 'p', type: 'ftp', host: 'x', port: 1 })).toThrow();
   });
@@ -19,8 +24,17 @@ describe('shared contracts', () => {
       schemaVersion: 1,
       platform: 'win64',
       stable: '143.0.0',
-      versions: [{ version: '143.0.0', url: 'https://example.test/chromium.zip', sha256: 'a'.repeat(64), size: 123 }]
+      versions: [
+        {
+          version: '143.0.0',
+          url: 'https://example.test/chromium.zip',
+          sha256: 'a'.repeat(64),
+          size: 123,
+          executableRelativePath: 'chrome.exe'
+        }
+      ]
     };
+
     expect(BrowserManifestSchema.parse(validManifest).platform).toBe('win64');
   });
 

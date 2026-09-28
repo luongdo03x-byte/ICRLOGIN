@@ -15,10 +15,18 @@ describe('database foundation', () => {
       try {
         runMigrations(db);
         runMigrations(db);
+
         expect(String(db.pragma('journal_mode', { simple: true })).toLowerCase()).toBe('wal');
         expect(Number(db.pragma('foreign_keys', { simple: true }))).toBe(1);
-        const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((row: any) => row.name as string);
-        for (const table of ['profiles', 'proxies', 'browser_versions', 'runtime_sessions', 'schema_migrations']) expect(tables).toContain(table);
+
+        const tables = db
+          .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+          .all()
+          .map((row: any) => row.name as string);
+        for (const table of ['profiles', 'proxies', 'browser_versions', 'runtime_sessions', 'schema_migrations']) {
+          expect(tables).toContain(table);
+        }
+
         const count = db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get() as { count: number };
         expect(count.count).toBe(1);
       } finally {

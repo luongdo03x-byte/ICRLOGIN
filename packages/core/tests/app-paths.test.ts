@@ -20,6 +20,7 @@ describe('app paths', () => {
       expect(paths.logsDir).toBe(resolve(root, 'logs'));
       expect(paths.trashDir).toBe(resolve(root, 'trash'));
       expect(paths.configDir).toBe(resolve(root, 'config'));
+
       for (const path of Object.values(paths)) {
         if (path === normalizedRoot) continue;
         expect(path.startsWith(`${normalizedRoot}${sep}`)).toBe(true);

@@ -4,7 +4,8 @@ export const BrowserManifestEntrySchema = z.object({
   version: z.string().trim().min(1),
   url: z.string().url(),
   sha256: z.string().regex(/^[a-fA-F0-9]{64}$/),
-  size: z.number().int().positive()
+  size: z.number().int().positive(),
+  executableRelativePath: z.string().trim().min(1)
 });
 
 export const BrowserManifestSchema = z.object({
@@ -19,6 +20,7 @@ export interface BrowserManifestEntry {
   url: string;
   sha256: string;
   size: number;
+  executableRelativePath: string;
 }
 
 export interface BrowserManifest {

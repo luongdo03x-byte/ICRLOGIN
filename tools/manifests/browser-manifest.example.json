@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "platform": "win64",
+  "stable": "143.0.0",
+  "versions": [
+    {
+      "version": "143.0.0",
+      "url": "https://example.invalid/icrlogin/chromium-143.0.0-win64.zip",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 123456789,
+      "executableRelativePath": "chrome.exe"
+    }
+  ]
+}

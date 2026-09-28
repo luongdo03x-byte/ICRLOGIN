@@ -10,7 +10,8 @@
   "scripts": {
     "test": "npm run test --workspaces --if-present",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:integration:chromium": "npm run test:integration:chromium -w @icrlogin/core"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -20,6 +21,8 @@
     "vitest": "^3.2.4",
     "zod": "^4.1.11",
     "@types/node": "^24.0.0",
-    "@types/better-sqlite3": "^7.6.13"
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/yauzl": "^2.10.3",
+    "playwright": "^1.55.0"
   }
 }
