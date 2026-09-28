@@ -14,6 +14,11 @@ export interface SecureWindowOptions {
   };
 }
 
+export interface BrowserManifestSettings {
+  manifestUrl: string | null;
+  cachePath: string;
+}
+
 export function createSecureWindowOptions(preload: string): SecureWindowOptions {
   return {
     width: 1100,
@@ -34,6 +39,16 @@ export function maskDataRoot(_absolutePath: string): string {
 
 export function moduleDirectory(metaUrl: string): string {
   return dirname(fileURLToPath(metaUrl));
+}
+
+export function resolveBrowserManifestSettings(
+  paths: AppPaths,
+  configuredUrl?: string
+): BrowserManifestSettings {
+  return {
+    manifestUrl: configuredUrl?.trim() || null,
+    cachePath: join(paths.configDir, 'browser-manifest-win64.json')
+  };
 }
 
 export async function prepareUserDataRoot(

@@ -1,21 +1,22 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
 import {
-  createAppPaths,
   ensureAppPaths,
+  HttpBrowserArtifactProvider,
+  JsonFileBrowserArtifactProvider,
   openDatabase,
   runMigrations,
-  ProcessRegistry,
-  ProfileFiles,
-  ProfileRepository,
-  ProfileService,
-  ProxyRepository,
-  ProxyService,
-  RuntimeSessionRepository,
   RuntimeReconciler,
   waitForCdp
 } from '@icrlogin/core';
-import { createSecureWindowOptions, maskDataRoot, moduleDirectory, prepareUserDataRoot } from './config.js';
+import { createAppServices } from './app-services.js';
+import {
+  createSecureWindowOptions,
+  maskDataRoot,
+  moduleDirectory,
+  prepareUserDataRoot,
+  resolveBrowserManifestSettings
+} from './config.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
 
@@ -31,17 +32,23 @@ async function bootstrap(): Promise<void> {
   const db = openDatabase(join(paths.dataDir, 'icrlogin.db'));
   runMigrations(db);
   const secretStore = new ElectronSafeStorageSecretStore(safeStorage);
-  const profileRepository = new ProfileRepository(db);
-  const proxyRepository = new ProxyRepository(db);
-  // Construct Phase-1 services in main only; renderer never receives these objects.
-  void new ProfileService(profileRepository, new ProfileFiles(paths));
-  void new ProxyService(proxyRepository, secretStore);
+  const manifestSettings = resolveBrowserManifestSettings(
+    paths,
+    process.env.ICRLOGIN_BROWSER_MANIFEST_URL
+  );
+  const browserArtifactProvider = manifestSettings.manifestUrl
+    ? new HttpBrowserArtifactProvider(manifestSettings.manifestUrl, manifestSettings.cachePath)
+    : new JsonFileBrowserArtifactProvider(manifestSettings.cachePath);
+  const services = createAppServices({
+    db,
+    paths,
+    secretStore,
+    browserArtifactProvider
+  });
 
-  const runtimeSessions = new RuntimeSessionRepository(db);
-  const registry = new ProcessRegistry();
   const reconciler = new RuntimeReconciler({
-    runtimeSessions,
-    registry,
+    runtimeSessions: services.runtimeSessions,
+    registry: services.registry,
     processInspector: new WindowsProcessInspector(),
     cdpProbe: waitForCdp,
     paths
@@ -51,7 +58,7 @@ async function bootstrap(): Promise<void> {
   ipcMain.handle('icr:health', () => ({
     status: 'ok' as const,
     dataRoot: maskDataRoot(dataRoot),
-    runningRuntimeCount: registry.list().length
+    runningRuntimeCount: services.registry.list().length
   }));
 
   const mainDir = moduleDirectory(import.meta.url);
