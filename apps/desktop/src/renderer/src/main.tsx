@@ -1,6 +1,10 @@
-import { createRoot } from 'react-dom/client';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from './App.js';
+import './styles.css';
 
-const root = document.getElementById('root');
-if (!root) throw new Error('Renderer root element is missing');
-createRoot(root).render(<App />);
+const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 1500, refetchOnWindowFocus: false, retry: 1 } } });
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode><QueryClientProvider client={queryClient}><App /></QueryClientProvider></React.StrictMode>
+);
