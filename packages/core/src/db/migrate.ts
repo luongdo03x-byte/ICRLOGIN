@@ -1,12 +1,13 @@
 import type { Database } from './database.js';
 import { migration001 } from './migrations/001.js';
+import { migration002 } from './migrations/002.js';
 
 interface Migration {
   readonly version: number;
   up(db: Database): void;
 }
 
-const MIGRATIONS: readonly Migration[] = [migration001];
+const MIGRATIONS: readonly Migration[] = [migration001, migration002];
 
 export function runMigrations(db: Database): void {
   db.exec(`
