@@ -1,5 +1,7 @@
+import { access } from 'node:fs/promises';
 import { AppError, DESKTOP_CHANNELS, DesktopPayloadSchemas, type ApiEnvelope, type BrowserDownloadProgressEvent, type ProxyPublic } from '@icrlogin/shared';
 import type { AppServices } from './app-services.js';
+import { checkExecutableAvailable } from './browser-dto.js';
 
 export interface IpcEventLike { sender: { send(channel:string,payload:unknown):void }; }
 export interface IpcMainLike { handle(channel:string,handler:(event:IpcEventLike,payload?:unknown)=>unknown):void; }
@@ -11,7 +13,7 @@ function parsePayload<T>(schema:Schema<T>,payload:unknown):T{try{return schema.p
 function errorEnvelope(error:unknown):ApiEnvelope<never>{if(error instanceof AppError)return{ok:false,error:{code:error.code,message:error.message}};return{ok:false,error:{code:'INTERNAL_ERROR',message:'Internal error'}};}
 async function respond<T>(operation:()=>Promise<T>|T):Promise<ApiEnvelope<T>>{try{return{ok:true,data:await operation()};}catch(error){return errorEnvelope(error) as ApiEnvelope<T>;}}
 function sanitizeProxy(proxy:ProxyPublic):ProxyPublic{return{id:proxy.id,name:proxy.name,type:proxy.type,host:proxy.host,port:proxy.port,username:proxy.username,hasPassword:proxy.hasPassword,createdAt:proxy.createdAt,updatedAt:proxy.updatedAt};}
-function sanitizeInstalled(browser:InstalledBrowserLike,profilesUsing:number){return{version:browser.version,sha256:browser.sha256,artifactSize:browser.artifactSize,installedAt:browser.installedAt,executableAvailable:Boolean(browser.executablePath),profilesUsing};}
+async function sanitizeInstalled(browser:InstalledBrowserLike,profilesUsing:number){return{version:browser.version,sha256:browser.sha256,artifactSize:browser.artifactSize,installedAt:browser.installedAt,executableAvailable:await checkExecutableAvailable(browser.executablePath,access),profilesUsing};}
 
 export function registerIpcHandlers(ipcMain:IpcMainLike,services:AppServices,options:RegisterIpcOptions):void{
   ipcMain.handle(DESKTOP_CHANNELS.health,()=>respond(()=>({status:'ok' as const,dataRoot:options.dataRootLabel,runningRuntimeCount:services.registry.list().length})));
@@ -33,6 +35,6 @@ export function registerIpcHandlers(ipcMain:IpcMainLike,services:AppServices,opt
   ipcMain.handle(DESKTOP_CHANNELS.proxiesUpdate,(_event,payload)=>respond(async()=>{const{id,input}=parsePayload(DesktopPayloadSchemas.proxyUpdate,payload);return sanitizeProxy(await services.proxies.update(id,input));}));
   ipcMain.handle(DESKTOP_CHANNELS.proxiesDelete,(_event,payload)=>respond(async()=>{const{id}=parsePayload(DesktopPayloadSchemas.id,payload);if(!(await services.proxies.get(id)))throw new AppError('PROXY_INVALID','Proxy not found');await services.proxies.delete(id);return null;}));
   ipcMain.handle(DESKTOP_CHANNELS.browsersAvailable,()=>respond(async()=>{const[available,installed,stable]=await Promise.all([services.browserVersions.listAvailable(),Promise.resolve(services.browserVersions.listInstalled()),services.browserVersions.getStable()]);const installedVersions=new Set(installed.map(item=>item.version));return available.map(entry=>({version:entry.version,size:entry.size,isStable:entry.version===stable.version,isInstalled:installedVersions.has(entry.version)}));}));
-  ipcMain.handle(DESKTOP_CHANNELS.browsersInstalled,()=>respond(async()=>{const profiles=await services.profiles.list();const usage=new Map<string,number>();for(const profile of profiles)usage.set(profile.browserVersion,(usage.get(profile.browserVersion)??0)+1);return services.browserVersions.listInstalled().map(browser=>sanitizeInstalled(browser,usage.get(browser.version)??0));}));
+  ipcMain.handle(DESKTOP_CHANNELS.browsersInstalled,()=>respond(async()=>{const profiles=await services.profiles.list();const usage=new Map<string,number>();for(const profile of profiles)usage.set(profile.browserVersion,(usage.get(profile.browserVersion)??0)+1);return Promise.all(services.browserVersions.listInstalled().map(browser=>sanitizeInstalled(browser,usage.get(browser.version)??0)));}));
   ipcMain.handle(DESKTOP_CHANNELS.browsersDownload,(event,payload)=>respond(async()=>{const{version}=parsePayload(DesktopPayloadSchemas.browserDownload,payload);const installed=await services.browserVersions.download(version,progress=>{const update:BrowserDownloadProgressEvent={version,...progress};event.sender.send(DESKTOP_CHANNELS.browserDownloadProgress,update);});const profiles=await services.profiles.list();const profilesUsing=profiles.filter(profile=>profile.browserVersion===version).length;return sanitizeInstalled(installed,profilesUsing);}));
 }
