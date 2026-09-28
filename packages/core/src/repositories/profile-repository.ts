@@ -122,6 +122,10 @@ export class ProfileRepository {
     return this.getById(id, { includeDeleted: true });
   }
 
+  markLastUsed(id: string, usedAt = new Date().toISOString()): void {
+    this.db.prepare('UPDATE profiles SET last_used_at = ? WHERE id = ?').run(usedAt, id);
+  }
+
   softDelete(id: string, deletedAt = new Date().toISOString()): void {
     this.db.prepare('UPDATE profiles SET deleted_at = ?, updated_at = ? WHERE id = ?').run(deletedAt, deletedAt, id);
   }
