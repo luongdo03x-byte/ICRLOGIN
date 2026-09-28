@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Group } from '@icrlogin/shared';
-import { DELETE_GROUP_CONFIRMATION, validateGroupName } from './group-form-model.js';
+import { DELETE_GROUP_CONFIRMATION, groupNamesExcept, validateGroupName } from './group-form-model.js';
 import { useCreateGroup, useDeleteGroup, useGroupsQuery, useRenameGroup } from './group-queries.js';
 
 export function GroupsPage() {
@@ -26,7 +26,7 @@ export function GroupsPage() {
     if (!editing) return;
     const validation = validateGroupName(
       editing.name,
-      existingNames.filter((candidate) => candidate.toLocaleLowerCase() !== editing.name.trim().toLocaleLowerCase())
+      groupNamesExcept(groups.data ?? [], editing.id)
     );
     if (!validation.ok) { setError(validation.message); return; }
     setError(null);

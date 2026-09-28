@@ -14,3 +14,7 @@ export function validateGroupName(name: string, existingNames: readonly string[]
   }
   return { ok: true, value };
 }
+
+export function groupNamesExcept(groups: readonly { id: string; name: string }[], excludedId: string): string[] {
+  return groups.filter((group) => group.id !== excludedId).map((group) => group.name);
+}
