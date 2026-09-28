@@ -6,7 +6,7 @@ import { runMigrations } from '../src/db/migrate.js';
 import { createTempRoot, removeTempRoot } from './helpers/temp-root.js';
 
 describe('database foundation', () => {
-  it('configures sqlite and applies migration 001 exactly once', async () => {
+  it('configures sqlite and applies migrations exactly once', async () => {
     const root = await createTempRoot();
     try {
       const paths = createAppPaths(root);
@@ -23,12 +23,12 @@ describe('database foundation', () => {
           .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
           .all()
           .map((row: any) => row.name as string);
-        for (const table of ['profiles', 'proxies', 'browser_versions', 'runtime_sessions', 'schema_migrations']) {
+        for (const table of ['profiles', 'proxies', 'browser_versions', 'runtime_sessions', 'groups', 'schema_migrations']) {
           expect(tables).toContain(table);
         }
 
         const count = db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get() as { count: number };
-        expect(count.count).toBe(1);
+        expect(count.count).toBe(2);
       } finally {
         db.close();
       }
