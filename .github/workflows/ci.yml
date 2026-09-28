@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - feat/phase-1-core-browser-proxy
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm test -w @icrlogin/shared
+      - run: npm run typecheck
+      - run: npm run lint
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
+          if-no-files-found: ignore
