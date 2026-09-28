@@ -5,12 +5,14 @@ Phase 2 turns the Phase-1 Electron shell into the first usable local desktop man
 ## Included
 
 - Profiles table with search/filter/sort, proxy-presence filter, selection, lifecycle state, Open/Stop, Edit and soft-delete actions.
+- Successful profile starts persist `last_used_at`, so Last used sorting/display reflects real launches rather than profile creation time.
 - Five-step Create/Edit Profile wizard: General, Proxy, Browser Environment, Startup URLs, Review.
 - Groups create/rename/delete; deleting a group moves member profiles to Ungrouped.
 - Proxy Manager for HTTP/HTTPS/SOCKS5 with main-process secret storage. Renderer receives `hasPassword`, never encrypted/plain saved secrets.
 - Browser Manager with Available/Installed views, stable marker, progress, retry state and installed-browser offline behavior.
 - Typed allowlisted IPC/preload bridge. Renderer has no generic invoke, filesystem, process, database or secret primitive.
 - Browser lifecycle state is exposed as `starting/running/stopping/stopped` so destructive profile mutations are blocked during transition races.
+- Renderer CSP restricts scripts to self, blocks `unsafe-eval`, objects and base-URI injection, while allowing local Vite HMR websockets during development.
 - Extensions and Settings remain explicit later-phase placeholders so navigation structure is stable.
 
 ## Development
@@ -31,10 +33,11 @@ Production validation is Windows 10/11 x64. Linux is development/test only. A co
 The implementation was developed with focused RED → GREEN checks. The latest sandbox verification after the Phase-2 review fixes included:
 
 - strict TypeScript regression harness for profile proxy filtering, safe runtime row actions, startup URL handling, and browser-version locking across every non-stopped lifecycle state;
-- lifecycle-state regression covering `stopped → starting → running → stopping → stopped` and runtime cleanup;
-- Chromium 144 smoke using a real local Chromium: CDP `/json/version` became reachable on localhost, the browser was stopped, restarted with the same `user-data-dir`, and CDP became reachable again.
+- lifecycle-state regression covering `stopped → starting → running → stopping → stopped`, runtime cleanup, and a single Last-used update only after successful start;
+- renderer CSP regression requiring `script-src 'self'` and rejecting `unsafe-eval`;
+- Chromium 144 smoke using a real local Chromium: CDP `/json/version` became reachable on localhost, the browser was stopped, restarted with the same `user-data-dir`, and CDP became reachable again on the second launch.
 
-A full dependency-backed workspace gate must still be rerun in a normal development/CI environment. The current execution environment cannot resolve `registry.npmjs.org` (`EAI_AGAIN`), so it cannot install missing React/Electron/Vitest dependencies. GitHub Actions is configured for feature branches, but current hosted runs fail before executing any step with `runner_id=0` and an empty step list. That is recorded as an infrastructure blocker rather than a passing or failing code result.
+A full dependency-backed workspace gate must still be rerun in a normal development/CI environment. The current execution environment cannot resolve `registry.npmjs.org` (`EAI_AGAIN`) and its npm cache is empty, so it cannot install missing React/Electron/Vitest dependencies. GitHub Actions is configured for `main` and `feat/**`, but current hosted runs fail before executing any step with `runner_id=0` and an empty step list. That is recorded as an infrastructure blocker rather than a passing or failing code result.
 
 When either environment is available, rerun the full gate:
 
@@ -50,7 +53,7 @@ and perform the Windows 10/11 desktop smoke before treating Phase 2 as release-r
 
 ## Security boundary
 
-The BrowserWindow retains `contextIsolation: true`, `nodeIntegration: false`, and sandboxing. IPC validates payloads with shared schemas and serializes stable error envelopes. Proxy credentials are decrypted only when Core needs runtime proxy configuration and are not included in browser command-line arguments or renderer DTOs.
+The BrowserWindow retains `contextIsolation: true`, `nodeIntegration: false`, and sandboxing. IPC validates payloads with shared schemas and serializes stable error envelopes. Proxy credentials are decrypted only when Core needs runtime proxy configuration and are not included in browser command-line arguments or renderer DTOs. The renderer document also carries a restrictive Content Security Policy.
 
 ## Phase-2 non-goals
 
