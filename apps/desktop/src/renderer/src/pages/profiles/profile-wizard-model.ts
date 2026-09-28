@@ -1,6 +1,6 @@
 export type GeolocationMode='allow'|'ask'|'block';
 export interface ProfileDraft{name:string;description:string;browserVersion:string;groupId:string;proxyId:string;userAgent:string;language:string;timezone:string;windowWidth:string;windowHeight:string;screenWidth:string;screenHeight:string;webrtcEnabled:boolean;geolocationMode:GeolocationMode;startupUrlsText:string;}
-export interface ProfileValidationOptions{originalBrowserVersion?:string;browserVersionLocked:boolean;}
+export interface ProfileValidationOptions{originalBrowserVersion?:string|undefined;browserVersionLocked:boolean;}
 export function isBrowserVersionLocked(runtimeState:string):boolean{return runtimeState!=='stopped';}
 export function parseStartupUrls(text:string):string[]{const lines=text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);for(const value of lines){let url:URL;try{url=new URL(value);}catch{throw new Error(`Invalid URL: ${value}`);}if(url.protocol!=='http:'&&url.protocol!=='https:')throw new Error(`Unsupported URL protocol: ${value}`);}return lines;}
 function positiveInteger(value:string):boolean{const n=Number(value);return Number.isInteger(n)&&n>0;}
