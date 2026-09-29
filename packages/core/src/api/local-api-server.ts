@@ -67,6 +67,10 @@ export class LocalApiServer {
         }
 
         if (match.kind === 'method-not-allowed') {
+          if (!match.public && !authorizeBearer(request.headers.authorization, this.options.bearerToken)) {
+            sendJson(response, 401, httpFail('INVALID_REQUEST', 'Unauthorized'));
+            return;
+          }
           sendJson(response, 405, httpFail('METHOD_NOT_ALLOWED', 'Method not allowed'));
           return;
         }
