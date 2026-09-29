@@ -1,4 +1,6 @@
 import { httpOk } from '@icrlogin/shared';
+import { registerGroupRoutes } from './routes/group-routes.js';
+import { registerProfileRoutes } from './routes/profile-routes.js';
 
 export interface ApiRouteContext {
   params: Record<string, string>;
@@ -24,13 +26,7 @@ export class LocalApiRouter {
   private readonly routes: ApiRoute[] = [];
 
   register(method: string, path: string, handler: ApiRouteHandler, options: { public?: boolean } = {}): void {
-    this.routes.push({
-      method: method.toUpperCase(),
-      path,
-      parts: path.split('/').filter(Boolean),
-      handler,
-      public: options.public === true
-    });
+    this.routes.push({ method: method.toUpperCase(), path, parts: path.split('/').filter(Boolean), handler, public: options.public === true });
   }
 
   listRoutes(): ReadonlyArray<Pick<ApiRoute, 'method' | 'path' | 'public'>> {
@@ -40,18 +36,12 @@ export class LocalApiRouter {
   match(method: string, path: string): RouteMatch {
     const parts = path.split('/').filter(Boolean);
     const pathMatches = this.routes.filter((route) =>
-      route.parts.length === parts.length &&
-      route.parts.every((part, index) => part.startsWith(':') || part === parts[index])
-    );
-
+      route.parts.length === parts.length && route.parts.every((part, index) => part.startsWith(':') || part === parts[index]));
     if (pathMatches.length === 0) return { kind: 'not-found' };
     const route = pathMatches.find((candidate) => candidate.method === method.toUpperCase());
     if (!route) return { kind: 'method-not-allowed' };
-
     const params: Record<string, string> = {};
-    route.parts.forEach((part, index) => {
-      if (part.startsWith(':')) params[part.slice(1)] = decodeURIComponent(parts[index] ?? '');
-    });
+    route.parts.forEach((part, index) => { if (part.startsWith(':')) params[part.slice(1)] = decodeURIComponent(parts[index] ?? ''); });
     return { kind: 'route', route, params };
   }
 }
@@ -59,5 +49,12 @@ export class LocalApiRouter {
 export function createBaseLocalApiRouter(): LocalApiRouter {
   const router = new LocalApiRouter();
   router.register('GET', '/api/v1/health', () => httpOk({ status: 'ok' as const }), { public: true });
+  return router;
+}
+
+export function createLocalApiRouter(services: any): LocalApiRouter {
+  const router = createBaseLocalApiRouter();
+  registerProfileRoutes(router, services);
+  registerGroupRoutes(router, services);
   return router;
 }
