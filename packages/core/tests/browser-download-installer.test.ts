@@ -101,4 +101,28 @@ describe('desktop browser artifacts', () => {
       await removeTempRoot(root);
     }
   });
+
+  it('does not expose filesystem paths from installer failures', async () => {
+    const root = await createTempRoot();
+    try {
+      const paths = createAppPaths(root);
+      await ensureAppPaths(paths);
+      const bytes = new TextEncoder().encode('bad');
+      const installer = new BrowserDownloadInstaller(
+        paths,
+        async () => new Response(bytes, { status: 200 }),
+        async () => { throw new Error(`ENOENT while opening ${join(paths.browsersDir, '143.0.0', 'chrome.exe')}`); }
+      );
+
+      try {
+        await installer.install({ ...entry, size: bytes.length });
+        throw new Error('expected browser install failure');
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'BROWSER_DOWNLOAD_FAILED', message: 'Browser download failed' });
+        expect(String((error as Error).message)).not.toContain(paths.browsersDir);
+      }
+    } finally {
+      await removeTempRoot(root);
+    }
+  });
 });
