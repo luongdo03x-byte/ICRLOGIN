@@ -4,6 +4,9 @@ import {
   BrowserVersionRepository,
   BrowserVersionService,
   ChromiumLauncher,
+  ExtensionImporter,
+  ExtensionRepository,
+  ExtensionService,
   GroupRepository,
   GroupService,
   PortAllocator,
@@ -31,6 +34,7 @@ export interface AppServices {
   groups: GroupService;
   proxies: ProxyService;
   proxyConnectivity: ProxyConnectivityService;
+  extensions: ExtensionService;
   browserVersions: BrowserVersionService;
   browsers: BrowserService;
   registry: ProcessRegistry;
@@ -51,6 +55,7 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
   const profileRepository = new ProfileRepository(options.db);
   const groupRepository = new GroupRepository(options.db);
   const proxyRepository = new ProxyRepository(options.db);
+  const extensionRepository = new ExtensionRepository(options.db);
   const browserVersionRepository = new BrowserVersionRepository(options.db);
   const runtimeSessions = new RuntimeSessionRepository(options.db);
   const registry = options.registry ?? new ProcessRegistry();
@@ -59,6 +64,7 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
   const groups = new GroupService(groupRepository);
   const proxies = new ProxyService(proxyRepository, options.secretStore);
   const proxyConnectivity = new ProxyConnectivityService(proxies);
+  const extensions = new ExtensionService(extensionRepository, new ExtensionImporter(options.paths));
   const downloader = new BrowserDownloadInstaller(options.paths);
   const artifactInstaller: BrowserArtifactInstaller = options.browserArtifactInstaller
     ?? ((entry, onProgress) => downloader.install(entry, onProgress));
@@ -75,6 +81,7 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
     profiles: profileRepository,
     browserVersions,
     proxies,
+    extensions,
     portAllocator: new PortAllocator(),
     launcher: new ChromiumLauncher(),
     cdpWaiter: options.cdpWaiter ?? waitForCdp,
@@ -84,5 +91,15 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
     paths: options.paths
   });
 
-  return { profiles, groups, proxies, proxyConnectivity, browserVersions, browsers, registry, runtimeSessions };
+  return {
+    profiles,
+    groups,
+    proxies,
+    proxyConnectivity,
+    extensions,
+    browserVersions,
+    browsers,
+    registry,
+    runtimeSessions
+  };
 }
