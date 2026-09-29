@@ -111,6 +111,11 @@ export class ProfileRepository {
     return row ? mapRow(row) : null;
   }
 
+  countByBrowserVersion(version: string): number {
+    const row = this.db.prepare('SELECT COUNT(*) AS count FROM profiles WHERE browser_version = ? AND deleted_at IS NULL').get(version) as { count: number };
+    return row.count;
+  }
+
   update(id: string, input: UpdateProfileInput, updatedAt = new Date().toISOString()): Profile | null {
     const entries = Object.entries(input).filter(([, value]) => value !== undefined) as Array<[keyof UpdateProfileInput, unknown]>;
     if (entries.length === 0) return this.getById(id, { includeDeleted: true });
