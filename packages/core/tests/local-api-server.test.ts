@@ -64,6 +64,37 @@ describe('LocalApiServer', () => {
     }
   });
 
+  it('rejects browser-origin requests to protected routes even when no bearer token is configured', async () => {
+    const router = new LocalApiRouter();
+    router.register('POST', '/api/v1/protected-action', () => ({ success: true, data: { changed: true }, error: null }));
+    const server = new LocalApiServer({ port: 0, services: {}, router });
+    const info = await server.start();
+    try {
+      const result = await json(`${info.baseUrl}/api/v1/protected-action`, {
+        method: 'POST',
+        headers: { origin: 'https://attacker.example' }
+      });
+      expect(result.status).toBe(403);
+      expect(result.body.error.code).toBe('INVALID_REQUEST');
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it('returns invalid-request for malformed encoded route params', async () => {
+    const router = new LocalApiRouter();
+    router.register('GET', '/api/v1/items/:id', () => ({ success: true, data: null, error: null }));
+    const server = new LocalApiServer({ port: 0, services: {}, router });
+    const info = await server.start();
+    try {
+      const result = await json(`${info.baseUrl}/api/v1/items/%E0%A4%A`);
+      expect(result.status).toBe(400);
+      expect(result.body.error.code).toBe('INVALID_REQUEST');
+    } finally {
+      await server.stop();
+    }
+  });
+
   it('distinguishes method-not-allowed and rate-limits clients', async () => {
     const server = new LocalApiServer({ port: 0, rateLimitPerSecond: 2, services: {} });
     const info = await server.start();
