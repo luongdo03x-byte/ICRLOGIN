@@ -16,6 +16,7 @@ describe('local API OpenAPI contract', () => {
     expect(LOCAL_API_OPENAPI.openapi).toBe('3.1.0');
     expect(LOCAL_API_OPENAPI.info.version).toBe('1.0.0');
     expect(LOCAL_API_OPENAPI.servers).toEqual([{ url: 'http://127.0.0.1:9495' }]);
+    expect(LOCAL_API_OPENAPI.security).toEqual([{ bearerAuth: [] }, {}]);
     const serialized = JSON.stringify(LOCAL_API_OPENAPI);
     expect(serialized).not.toContain('executablePath');
     expect(serialized).not.toContain('userDataDir');
