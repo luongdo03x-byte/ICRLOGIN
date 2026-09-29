@@ -142,6 +142,6 @@ export async function installBrowserArtifact(
   } catch (error) {
     await rm(stagingDir, { recursive: true, force: true });
     if (error instanceof AppError) throw error;
-    throw archiveInvalid(error instanceof Error ? error.message : 'Browser archive extraction failed');
+    throw archiveInvalid('Browser archive extraction failed');
   }
 }
