@@ -3,6 +3,10 @@ import { APP_ERROR_CODES } from '../src/errors.js';
 import { BrowserManifestSchema } from '../src/browser.js';
 import { CreateProfileInputSchema } from '../src/profile.js';
 import { CreateProxyInputSchema } from '../src/proxy.js';
+import { CreateTagInputSchema } from '../src/tag.js';
+import { ExtensionSourceTypeSchema } from '../src/extension.js';
+import { CloneProfileInputSchema, ProfileTemplateConfigSchema } from '../src/profile-template.js';
+import { BulkStartInputSchema } from '../src/bulk.js';
 import {
   HttpIdParamsSchema,
   HttpPortSchema,
@@ -50,5 +54,28 @@ describe('shared contracts', () => {
     expect(HttpPortSchema.parse(9495)).toBe(9495);
     expect(() => HttpPortSchema.parse(0)).toThrow();
     expect(() => HttpPortSchema.parse(65536)).toThrow();
+  });
+
+  it('normalizes tag names and limits extension source types', () => {
+    expect(CreateTagInputSchema.parse({ name: '  Social  ' }).name).toBe('Social');
+    expect(() => CreateTagInputSchema.parse({ name: '   ' })).toThrow();
+    expect(ExtensionSourceTypeSchema.parse('unpacked')).toBe('unpacked');
+    expect(ExtensionSourceTypeSchema.parse('crx')).toBe('crx');
+    expect(() => ExtensionSourceTypeSchema.parse('remote')).toThrow();
+  });
+
+  it('keeps template config strict so secrets and session paths cannot enter it', () => {
+    const clean = { browserVersion: '144.0.0', groupId: null, proxyId: null, language: 'en-US', timezone: 'UTC', startupUrls: [] };
+    expect(ProfileTemplateConfigSchema.parse(clean).browserVersion).toBe('144.0.0');
+    for (const key of ['proxyPassword', 'apiToken', 'userDataDir', 'cookies']) {
+      expect(() => ProfileTemplateConfigSchema.parse({ ...clean, [key]: 'secret' })).toThrow();
+    }
+  });
+
+  it('validates clone mode and bounded bulk start concurrency', () => {
+    const id = '123e4567-e89b-42d3-a456-426614174000';
+    expect(CloneProfileInputSchema.parse({ sourceId: id, mode: 'config' }).mode).toBe('config');
+    expect(BulkStartInputSchema.parse({ ids: [id] }).concurrency).toBe(3);
+    expect(() => BulkStartInputSchema.parse({ ids: [id], concurrency: 6 })).toThrow();
   });
 });
