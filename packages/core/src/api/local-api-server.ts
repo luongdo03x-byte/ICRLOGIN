@@ -93,6 +93,7 @@ export class LocalApiServer {
     await new Promise<void>((resolve, reject) => {
       const onError = (error: NodeJS.ErrnoException) => {
         server.off('listening', onListening);
+        this.server = null;
         reject(error.code === 'EADDRINUSE'
           ? new AppError('PORT_UNAVAILABLE', `Port ${this.port} is unavailable`)
           : error);
@@ -114,7 +115,7 @@ export class LocalApiServer {
   async stop(): Promise<void> {
     const server = this.server;
     this.server = null;
-    if (!server) return;
+    if (!server || !server.listening) return;
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 }
