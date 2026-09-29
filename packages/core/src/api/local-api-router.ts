@@ -1,6 +1,7 @@
 import { httpOk } from '@icrlogin/shared';
 import { registerGroupRoutes } from './routes/group-routes.js';
 import { registerProfileRoutes } from './routes/profile-routes.js';
+import { registerProxyRoutes } from './routes/proxy-routes.js';
 import { registerRuntimeRoutes } from './routes/runtime-routes.js';
 
 export interface ApiRouteContext {
@@ -58,5 +59,6 @@ export function createLocalApiRouter(services: any): LocalApiRouter {
   registerProfileRoutes(router, services);
   registerGroupRoutes(router, services);
   registerRuntimeRoutes(router, services);
+  registerProxyRoutes(router, services);
   return router;
 }
