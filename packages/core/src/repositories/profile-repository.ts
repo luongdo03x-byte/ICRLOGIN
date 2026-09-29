@@ -143,4 +143,22 @@ export class ProfileRepository {
   deleteById(id: string): void {
     this.db.prepare('DELETE FROM profiles WHERE id = ?').run(id);
   }
+
+  listTagIds(profileId: string): string[] {
+    return (this.db.prepare('SELECT tag_id FROM profile_tags WHERE profile_id = ? ORDER BY tag_id').all(profileId) as Array<{ tag_id: string }>).map((row) => row.tag_id);
+  }
+
+  listTagIdsByProfileIds(profileIds: string[]): Record<string, string[]> {
+    const result = Object.fromEntries(profileIds.map((id) => [id, [] as string[]])) as Record<string, string[]>;
+    if (profileIds.length === 0) return result;
+    const placeholders = profileIds.map(() => '?').join(', ');
+    const rows = this.db.prepare(`
+      SELECT profile_id, tag_id
+      FROM profile_tags
+      WHERE profile_id IN (${placeholders})
+      ORDER BY profile_id, tag_id
+    `).all(...profileIds) as Array<{ profile_id: string; tag_id: string }>;
+    for (const row of rows) result[row.profile_id]?.push(row.tag_id);
+    return result;
+  }
 }
