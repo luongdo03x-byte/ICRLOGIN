@@ -6,7 +6,7 @@
   "exports": "./src/index.ts",
   "scripts": {
     "test": "vitest run",
-    "test:integration:chromium": "vitest run tests/chromium.integration.test.ts"
+    "test:integration:chromium": "vitest run tests/chromium.integration.test.ts tests/local-api.chromium.integration.test.ts"
   },
   "dependencies": {
     "@icrlogin/shared": "0.1.0",
