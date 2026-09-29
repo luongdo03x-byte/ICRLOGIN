@@ -3,6 +3,13 @@ import { APP_ERROR_CODES } from '../src/errors.js';
 import { BrowserManifestSchema } from '../src/browser.js';
 import { CreateProfileInputSchema } from '../src/profile.js';
 import { CreateProxyInputSchema } from '../src/proxy.js';
+import {
+  HttpIdParamsSchema,
+  HttpPortSchema,
+  HttpVersionParamsSchema,
+  httpFail,
+  httpOk
+} from '../src/http-api.js';
 
 describe('shared contracts', () => {
   it('accepts a valid profile and rejects an empty name', () => {
@@ -24,21 +31,24 @@ describe('shared contracts', () => {
       schemaVersion: 1,
       platform: 'win64',
       stable: '143.0.0',
-      versions: [
-        {
-          version: '143.0.0',
-          url: 'https://example.test/chromium.zip',
-          sha256: 'a'.repeat(64),
-          size: 123,
-          executableRelativePath: 'chrome.exe'
-        }
-      ]
+      versions: [{ version: '143.0.0', url: 'https://example.test/chromium.zip', sha256: 'a'.repeat(64), size: 123, executableRelativePath: 'chrome.exe' }]
     };
-
     expect(BrowserManifestSchema.parse(validManifest).platform).toBe('win64');
   });
 
-  it('publishes stable profile runtime errors', () => {
-    expect(APP_ERROR_CODES).toContain('PROFILE_ALREADY_RUNNING');
+  it('publishes stable local API envelopes and errors', () => {
+    expect(httpOk({ value: 1 })).toEqual({ success: true, data: { value: 1 }, error: null });
+    expect(httpFail('RATE_LIMITED', 'slow down')).toEqual({ success: false, data: null, error: { code: 'RATE_LIMITED', message: 'slow down' } });
+    for (const code of ['RATE_LIMITED', 'ROUTE_NOT_FOUND', 'METHOD_NOT_ALLOWED', 'BROWSER_IN_USE']) expect(APP_ERROR_CODES).toContain(code);
+  });
+
+  it('validates local API id, version, and port parameters', () => {
+    expect(HttpIdParamsSchema.parse({ id: '123e4567-e89b-42d3-a456-426614174000' }).id).toBe('123e4567-e89b-42d3-a456-426614174000');
+    expect(() => HttpIdParamsSchema.parse({ id: 'not-a-uuid' })).toThrow();
+    expect(HttpVersionParamsSchema.parse({ version: '143.0.7499.40' }).version).toBe('143.0.7499.40');
+    expect(() => HttpVersionParamsSchema.parse({ version: '../../bad' })).toThrow();
+    expect(HttpPortSchema.parse(9495)).toBe(9495);
+    expect(() => HttpPortSchema.parse(0)).toThrow();
+    expect(() => HttpPortSchema.parse(65536)).toThrow();
   });
 });
