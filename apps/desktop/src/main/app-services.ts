@@ -12,9 +12,11 @@ import {
   ProfileOperationLock,
   ProfileRepository,
   ProfileService,
+  ProxyConnectivityService,
   ProxyRepository,
   ProxyService,
   RuntimeSessionRepository,
+  removeManagedBrowser,
   waitForCdp,
   type AppPaths,
   type BrowserArtifactInstaller,
@@ -28,6 +30,7 @@ export interface AppServices {
   profiles: ProfileService;
   groups: GroupService;
   proxies: ProxyService;
+  proxyConnectivity: ProxyConnectivityService;
   browserVersions: BrowserVersionService;
   browsers: BrowserService;
   registry: ProcessRegistry;
@@ -55,13 +58,18 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
   const profiles = new ProfileService(profileRepository, new ProfileFiles(options.paths));
   const groups = new GroupService(groupRepository);
   const proxies = new ProxyService(proxyRepository, options.secretStore);
+  const proxyConnectivity = new ProxyConnectivityService(proxies);
   const downloader = new BrowserDownloadInstaller(options.paths);
   const artifactInstaller: BrowserArtifactInstaller = options.browserArtifactInstaller
     ?? ((entry, onProgress) => downloader.install(entry, onProgress));
   const browserVersions = new BrowserVersionService(
     options.browserArtifactProvider,
     browserVersionRepository,
-    artifactInstaller
+    artifactInstaller,
+    {
+      usageCounter: (version) => profileRepository.countByBrowserVersion(version),
+      uninstaller: (browser) => removeManagedBrowser(options.paths, browser.version)
+    }
   );
   const browsers = new BrowserService({
     profiles: profileRepository,
@@ -76,13 +84,5 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
     paths: options.paths
   });
 
-  return {
-    profiles,
-    groups,
-    proxies,
-    browserVersions,
-    browsers,
-    registry,
-    runtimeSessions
-  };
+  return { profiles, groups, proxies, proxyConnectivity, browserVersions, browsers, registry, runtimeSessions };
 }
