@@ -21,7 +21,8 @@ describe('BulkOperationService', () => {
           active -= 1;
           return { profileId: id } as any;
         },
-        async stop() {}
+        async stop() {},
+        getState() { return 'stopped'; }
       },
       profiles: { async update() {}, async softDelete() {} },
       tags: { addProfileTags() {}, removeProfileTags() {} }
@@ -46,7 +47,8 @@ describe('BulkOperationService', () => {
           if (id === 'b' && failB) throw new AppError('BROWSER_START_FAILED', 'failed');
           return { profileId: id } as any;
         },
-        async stop() {}
+        async stop() {},
+        getState() { return 'stopped'; }
       },
       profiles: { async update() {}, async softDelete() {} },
       tags: { addProfileTags() {}, removeProfileTags() {} }
@@ -66,7 +68,8 @@ describe('BulkOperationService', () => {
     const service = new BulkOperationService({
       browsers: {
         async start(id) { return { profileId: id } as any; },
-        async stop(id) { events.push(`stop:${id}`); if (id === 'bad') throw new AppError('PROFILE_NOT_RUNNING', 'not running'); }
+        async stop(id) { events.push(`stop:${id}`); if (id === 'bad') throw new AppError('PROFILE_NOT_RUNNING', 'not running'); },
+        getState() { return 'stopped'; }
       },
       profiles: {
         async update(id, input) { events.push(`update:${id}:${JSON.stringify(input)}`); },
