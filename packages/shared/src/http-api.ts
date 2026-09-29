@@ -68,6 +68,16 @@ export interface HttpProcessRecord {
   startedAt: string;
 }
 
+export interface HttpBrowserStartResult {
+  profileId: string;
+  status: 'running';
+  pid: number;
+  browserVersion: string;
+  remoteDebuggingPort: number;
+  cdpHttpUrl: string;
+  webSocketDebuggerUrl: string;
+}
+
 export interface HttpInstalledBrowser {
   version: string;
   sha256: string;
@@ -80,8 +90,4 @@ export interface HttpInstalledBrowser {
 export interface HttpProxyTestResult {
   reachable: true;
   latencyMs: number;
-}
-
-export interface HttpBrowserStartResult extends HttpProcessRecord {
-  status: 'running';
 }
