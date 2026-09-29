@@ -27,6 +27,8 @@ jobs:
         run: npm run lint
       - name: Build desktop
         run: npm run build -w @icrlogin/desktop
+      - name: Chromium integration and local API automation smoke
+        run: npm run test:integration:chromium
       - if: always()
         uses: actions/upload-artifact@v4
         with:
