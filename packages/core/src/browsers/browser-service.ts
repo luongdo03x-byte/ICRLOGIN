@@ -23,6 +23,10 @@ interface ProxyRuntimeResolver {
   getRuntimeConfig(id: string): Promise<ProxyRuntimeConfig>;
 }
 
+export interface ExtensionRuntimeResolver {
+  resolvePaths(profileId: string): string[] | Promise<string[]>;
+}
+
 interface PortAllocatorLike {
   reserve(preferredPort?: number): Promise<number>;
   release(port: number): Promise<void>;
@@ -40,6 +44,7 @@ export interface BrowserServiceDependencies {
   profiles: ProfileReader;
   browserVersions: BrowserVersionResolver;
   proxies: ProxyRuntimeResolver;
+  extensions?: ExtensionRuntimeResolver;
   portAllocator: PortAllocatorLike;
   launcher: ChromiumLauncherLike;
   cdpWaiter: CdpWaiter;
@@ -106,6 +111,7 @@ export class BrowserService {
 
         const installed = await this.deps.browserVersions.ensureInstalled(profile.browserVersion);
         const proxy = profile.proxyId ? await this.deps.proxies.getRuntimeConfig(profile.proxyId) : null;
+        const extensionPaths = this.deps.extensions ? await this.deps.extensions.resolvePaths(profileId) : [];
         const port = await this.deps.portAllocator.reserve();
         let portReserved = true;
         let handle: ChildProcessHandle | undefined;
@@ -125,7 +131,8 @@ export class BrowserService {
             executablePath: installed.executablePath,
             profileUserDataDir: userDataDir,
             remoteDebuggingPort: port,
-            proxy
+            proxy,
+            extensionPaths
           });
 
           handle.onExit(() => {
