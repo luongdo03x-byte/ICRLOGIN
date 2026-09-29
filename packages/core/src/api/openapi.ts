@@ -9,7 +9,7 @@ export const LOCAL_API_OPENAPI = {
     description: 'Localhost-only API for ICRLogin profile and Chromium automation.'
   },
   servers: [{ url: 'http://127.0.0.1:9495' }],
-  security: [{ bearerAuth: [] }],
+  security: [{ bearerAuth: [] }, {}],
   paths: {
     '/api/v1/health': { get: { ...operation('Health'), security: [] } },
     '/api/v1/profiles': { get: operation('List profiles'), post: operation('Create profile') },
