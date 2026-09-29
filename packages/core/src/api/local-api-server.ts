@@ -30,6 +30,10 @@ function errorStatus(code: string): number {
   return 500;
 }
 
+function isBrowserOriginRequest(origin: string | undefined): boolean {
+  return typeof origin === 'string' && origin.length > 0;
+}
+
 export class LocalApiServer {
   private readonly host = '127.0.0.1' as const;
   private readonly port: number;
@@ -71,12 +75,20 @@ export class LocalApiServer {
             sendJson(response, 401, httpFail('INVALID_REQUEST', 'Unauthorized'));
             return;
           }
+          if (!match.public && isBrowserOriginRequest(request.headers.origin)) {
+            sendJson(response, 403, httpFail('INVALID_REQUEST', 'Browser-origin requests are not allowed'));
+            return;
+          }
           sendJson(response, 405, httpFail('METHOD_NOT_ALLOWED', 'Method not allowed'));
           return;
         }
 
         if (!match.route.public && !authorizeBearer(request.headers.authorization, this.options.bearerToken)) {
           sendJson(response, 401, httpFail('INVALID_REQUEST', 'Unauthorized'));
+          return;
+        }
+        if (!match.route.public && isBrowserOriginRequest(request.headers.origin)) {
+          sendJson(response, 403, httpFail('INVALID_REQUEST', 'Browser-origin requests are not allowed'));
           return;
         }
 
