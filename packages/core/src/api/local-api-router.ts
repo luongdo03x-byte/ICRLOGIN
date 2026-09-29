@@ -23,7 +23,7 @@ export interface ApiRoute {
 
 export type RouteMatch =
   | { kind: 'route'; route: ApiRoute; params: Record<string, string> }
-  | { kind: 'method-not-allowed' }
+  | { kind: 'method-not-allowed'; public: boolean }
   | { kind: 'not-found' };
 
 export class LocalApiRouter {
@@ -43,7 +43,7 @@ export class LocalApiRouter {
       route.parts.length === parts.length && route.parts.every((part, index) => part.startsWith(':') || part === parts[index]));
     if (pathMatches.length === 0) return { kind: 'not-found' };
     const route = pathMatches.find((candidate) => candidate.method === method.toUpperCase());
-    if (!route) return { kind: 'method-not-allowed' };
+    if (!route) return { kind: 'method-not-allowed', public: pathMatches.some((candidate) => candidate.public) };
     const params: Record<string, string> = {};
     route.parts.forEach((part, index) => { if (part.startsWith(':')) params[part.slice(1)] = decodeURIComponent(parts[index] ?? ''); });
     return { kind: 'route', route, params };
