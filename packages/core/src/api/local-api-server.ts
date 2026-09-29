@@ -2,14 +2,14 @@ import { createServer, type Server } from 'node:http';
 import { AppError, httpFail } from '@icrlogin/shared';
 import { authorizeBearer } from './bearer-auth.js';
 import { sendJson } from './http-response.js';
-import { createBaseLocalApiRouter, type LocalApiRouter } from './local-api-router.js';
+import { createLocalApiRouter, type LocalApiRouter } from './local-api-router.js';
 import { FixedWindowRateLimiter } from './rate-limiter.js';
 import { readJsonBody } from './request-body.js';
 
 export interface LocalApiServerOptions {
   port?: number;
   bearerToken?: string;
-  services: unknown;
+  services: any;
   rateLimitPerSecond?: number;
   router?: LocalApiRouter;
 }
@@ -39,7 +39,7 @@ export class LocalApiServer {
 
   constructor(private readonly options: LocalApiServerOptions) {
     this.port = options.port ?? 9495;
-    this.router = options.router ?? createBaseLocalApiRouter();
+    this.router = options.router ?? createLocalApiRouter(options.services);
     this.limiter = new FixedWindowRateLimiter(options.rateLimitPerSecond ?? 100);
   }
 
