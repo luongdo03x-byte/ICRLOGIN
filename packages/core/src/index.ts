@@ -1,4 +1,5 @@
 export * from './app-paths.js';
+export * from './bulk/bulk-operation-service.js';
 export * from './db/database.js';
 export * from './db/migrate.js';
 export * from './browsers/artifact-provider.js';
