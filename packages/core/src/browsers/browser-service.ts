@@ -64,6 +64,7 @@ function timeout(ms: number): Promise<'timeout'> {
 export class BrowserService {
   private readonly starting = new Set<string>();
   private readonly stopping = new Set<string>();
+  private readonly restarting = new Set<string>();
   private readonly processes = new Map<string, ManagedProcess>();
   private readonly cdpTimeoutMs: number;
   private readonly stopGraceMs: number;
@@ -80,14 +81,21 @@ export class BrowserService {
   }
 
   getState(profileId: string): BrowserLifecycleState {
-    if (this.starting.has(profileId)) return 'starting';
     if (this.stopping.has(profileId)) return 'stopping';
+    if (this.starting.has(profileId)) return 'starting';
+    if (this.restarting.has(profileId)) return this.deps.registry.get(profileId) ? 'stopping' : 'starting';
     return this.deps.registry.get(profileId)?.state ?? 'stopped';
   }
 
   async start(profileId: string): Promise<BrowserRuntimeInfo> {
+    return this.startInternal(profileId, false);
+  }
+
+  private async startInternal(profileId: string, fromRestart: boolean): Promise<BrowserRuntimeInfo> {
     if (this.deps.registry.get(profileId)) throw new AppError('PROFILE_ALREADY_RUNNING', 'Profile is already running');
-    if (this.starting.has(profileId)) throw new AppError('PROFILE_START_IN_PROGRESS', 'Profile start is already in progress');
+    if (this.starting.has(profileId) || (!fromRestart && this.restarting.has(profileId))) {
+      throw new AppError('PROFILE_START_IN_PROGRESS', 'Profile start is already in progress');
+    }
     this.starting.add(profileId);
 
     try {
@@ -208,6 +216,19 @@ export class BrowserService {
       });
     } finally {
       this.stopping.delete(profileId);
+    }
+  }
+
+  async restart(profileId: string): Promise<BrowserRuntimeInfo> {
+    if (this.restarting.has(profileId) || this.starting.has(profileId) || this.stopping.has(profileId)) {
+      throw new AppError('PROFILE_START_IN_PROGRESS', 'Profile restart is already in progress');
+    }
+    this.restarting.add(profileId);
+    try {
+      if (this.deps.registry.get(profileId)) await this.stop(profileId);
+      return await this.startInternal(profileId, true);
+    } finally {
+      this.restarting.delete(profileId);
     }
   }
 
