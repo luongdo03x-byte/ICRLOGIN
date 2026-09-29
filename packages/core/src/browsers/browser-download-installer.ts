@@ -91,10 +91,7 @@ export class BrowserDownloadInstaller {
       return await this.artifactInstaller(entry, tempPath, this.paths);
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(
-        'BROWSER_DOWNLOAD_FAILED',
-        error instanceof Error ? error.message : 'Browser download failed'
-      );
+      throw new AppError('BROWSER_DOWNLOAD_FAILED', 'Browser download failed');
     } finally {
       await rm(tempPath, { force: true });
     }
