@@ -1,4 +1,4 @@
-import { httpOk } from '@icrlogin/shared';
+import { AppError, httpOk } from '@icrlogin/shared';
 import { LOCAL_API_OPENAPI } from './openapi.js';
 import { registerBrowserRoutes } from './routes/browser-routes.js';
 import { registerGroupRoutes } from './routes/group-routes.js';
@@ -26,6 +26,11 @@ export type RouteMatch =
   | { kind: 'method-not-allowed'; public: boolean }
   | { kind: 'not-found' };
 
+function decodeRouteParam(value: string): string {
+  try { return decodeURIComponent(value); }
+  catch { throw new AppError('INVALID_REQUEST', 'Invalid route parameter'); }
+}
+
 export class LocalApiRouter {
   private readonly routes: ApiRoute[] = [];
 
@@ -45,7 +50,7 @@ export class LocalApiRouter {
     const route = pathMatches.find((candidate) => candidate.method === method.toUpperCase());
     if (!route) return { kind: 'method-not-allowed', public: pathMatches.every((candidate) => candidate.public) };
     const params: Record<string, string> = {};
-    route.parts.forEach((part, index) => { if (part.startsWith(':')) params[part.slice(1)] = decodeURIComponent(parts[index] ?? ''); });
+    route.parts.forEach((part, index) => { if (part.startsWith(':')) params[part.slice(1)] = decodeRouteParam(parts[index] ?? ''); });
     return { kind: 'route', route, params };
   }
 }
