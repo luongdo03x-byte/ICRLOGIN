@@ -37,6 +37,8 @@ curl.exe -H "Authorization: Bearer $env:ICRLOGIN_API_TOKEN" http://127.0.0.1:949
 
 `/api/v1/health` and `/api/v1/openapi.json` remain public on localhost so local diagnostics and API discovery work even when bearer auth is enabled.
 
+Protected routes reject requests carrying a browser `Origin` header. The desktop renderer uses typed IPC rather than browser HTTP fetches, while local Node/Python/automation clients normally do not send an `Origin` header. This prevents a normal website from using the optional no-token mode as a localhost CSRF surface.
+
 ## Main resources
 
 ```text
@@ -153,6 +155,7 @@ Use the returned `127.0.0.1:<remoteDebuggingPort>` as the Chromium debugger addr
 - Browser uninstall is rejected with `BROWSER_IN_USE` while any non-deleted profile references the version.
 - Filesystem removal occurs before the installed-version DB record is deleted; failed removal keeps the DB record intact.
 - Installed browsers remain visible through the API if the remote manifest is temporarily unavailable.
+- Filesystem failures are reduced to stable browser error messages before crossing the HTTP boundary; local browser/profile paths are not returned.
 
 ## Limits and security
 
@@ -161,6 +164,8 @@ Use the returned `127.0.0.1:<remoteDebuggingPort>` as the Chromium debugger addr
 - Request body maximum: 1 MiB.
 - Default rate limit: 100 requests/second per remote address.
 - Optional bearer comparison uses fixed-length SHA-256 digests plus constant-time comparison.
+- Protected routes reject browser-origin requests.
+- Malformed percent-encoded route parameters return `INVALID_REQUEST` instead of surfacing runtime decoder errors.
 - CDP listeners are localhost-only.
 - No arbitrary filesystem/shell endpoints are exposed.
 - No fingerprint fabrication, stealth plugins, detection bypass, CAPTCHA bypass, or arbitrary browser-flag injection is part of this API.
@@ -179,3 +184,16 @@ npm run test:integration:chromium
 ```
 
 The Chromium integration gate includes the existing profile lifecycle smoke and the Phase-3 HTTP API → CDP → Playwright automation smoke.
+
+### Latest verification evidence
+
+On the Phase-3 branch, the sandbox gate after the final security review passed:
+
+- Local API security regressions: protected method auth ordering, browser-origin rejection, malformed route encoding, optional OpenAPI bearer declaration, and filesystem-path redaction.
+- Chromium semantic smoke using system Chromium 144: API listener on `127.0.0.1` → start Chromium → `/json/version` → `Browser.getVersion` → `Target.createTarget` → stop → process cleanup.
+- Earlier focused Phase-3 service/route/config/token gates were green before the final review fixes.
+
+Infrastructure blockers are recorded separately from code failures:
+
+- The sandbox cannot resolve `github.com`/npm registry hosts, so a fresh full dependency install and complete workspace `typecheck/test/lint/build` cannot run there.
+- GitHub Actions runs are created, but the job fails before runner execution (`steps: null` / no runner steps), so there is no CI test log attributable to repository code yet.
