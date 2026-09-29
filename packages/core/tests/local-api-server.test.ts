@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { describe, expect, it } from 'vitest';
 import { LocalApiServer } from '../src/api/local-api-server.js';
 import { LocalApiRouter } from '../src/api/local-api-router.js';
@@ -82,5 +83,19 @@ describe('LocalApiServer', () => {
   it('body parser accepts valid JSON directly', async () => {
     async function* chunks() { yield Buffer.from('{"ok":true}'); }
     await expect(readJsonBody(chunks())).resolves.toEqual({ ok: true });
+  });
+
+  it('clears failed bind state so stop remains safe', async () => {
+    const blocker = createServer((_request, response) => response.end());
+    await new Promise<void>((resolve) => blocker.listen({ host: '127.0.0.1', port: 0 }, resolve));
+    const address = blocker.address();
+    if (!address || typeof address === 'string') throw new Error('Missing blocker port');
+    const server = new LocalApiServer({ port: address.port, services: {} });
+    try {
+      await expect(server.start()).rejects.toMatchObject({ code: 'PORT_UNAVAILABLE' });
+      await expect(server.stop()).resolves.toBeUndefined();
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+    }
   });
 });
