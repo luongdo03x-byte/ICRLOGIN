@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AppError, createAppPaths, type AppPaths } from '@icrlogin/core';
-import { HttpPortSchema } from '@icrlogin/shared';
+import { createAppPaths, type AppPaths } from '@icrlogin/core';
+import { AppError, HttpPortSchema } from '@icrlogin/shared';
 
 export interface SecureWindowOptions {
   width: number;
