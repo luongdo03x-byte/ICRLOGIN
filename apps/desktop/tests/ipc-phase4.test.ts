@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { DESKTOP_CHANNELS } from '@icrlogin/shared';
 import { registerIpcHandlers, type IpcMainLike } from '../src/main/ipc.js';
 
+const A = '123e4567-e89b-42d3-a456-426614174000';
+const B = '223e4567-e89b-42d3-a456-426614174000';
+
 function harness(services: any) {
   const handlers = new Map<string, (event: any, payload?: unknown) => Promise<any> | any>();
   const ipcMain: IpcMainLike = { handle(channel, handler) { handlers.set(channel, handler); } };
@@ -18,7 +21,7 @@ function baseServices() {
     browserVersions: { listAvailable: async () => [], listInstalled: () => [], getStable: async () => ({ version: '144' }), download: async () => ({}) },
     browsers: { getRuntime: () => null, getState: () => 'stopped', start: async () => ({ state: 'running', startedAt: 'x' }), stop: async () => {} },
     registry: { list: () => [] },
-    tags: { list: () => [], create: () => ({}), rename: () => ({}), delete: () => {}, setProfileTags: () => {} },
+    tags: { list: () => [], create: () => ({}), rename: () => ({}), delete: () => {}, setProfileTags: () => {}, listTagIdsByProfileIds: () => ({}), listProfileTagIds: () => [] },
     profileClones: { cloneConfig: async () => ({ id: 'clone' }), cloneFull: async () => ({ id: 'clone' }) },
     templates: { list: () => [], saveFromProfile: () => ({ id: 'template' }), createProfile: async () => ({ id: 'profile' }), delete: () => {} },
     extensions: { list: () => [], importUnpacked: async () => ({}), importCrx: async () => ({}), setEnabled: () => ({}), delete: async () => {}, assignToProfile: () => {}, removeFromProfile: () => {}, assignToGroup: () => {}, removeFromGroup: () => {}, listForProfile: () => [] },
@@ -45,9 +48,7 @@ describe('phase 4 IPC', () => {
     services.browsers.getState = () => 'running';
     services.profileClones.cloneFull = async () => { fullCalls += 1; return { id: 'clone' }; };
     const { invoke } = harness(services);
-    const result = await invoke(DESKTOP_CHANNELS.profilesClone, {
-      sourceId: '123e4567-e89b-42d3-a456-426614174000', mode: 'full'
-    });
+    const result = await invoke(DESKTOP_CHANNELS.profilesClone, { sourceId: A, mode: 'full' });
     expect(result.ok).toBe(false);
     expect(result.error.code).toBe('INVALID_REQUEST');
     expect(fullCalls).toBe(0);
@@ -55,7 +56,7 @@ describe('phase 4 IPC', () => {
 
   it('redacts internal extension paths even if a service returns one', async () => {
     const services = baseServices();
-    services.extensions.list = () => [{ id: 'e1', name: 'Ext', version: '1.0', sourceType: 'unpacked', enabled: true, profileCount: 0, groupCount: 0, createdAt: 'x', updatedAt: 'x', sourcePath: 'C:/secret/internal' }];
+    services.extensions.list = () => [{ id: A, name: 'Ext', version: '1.0', sourceType: 'unpacked', enabled: true, profileCount: 0, groupCount: 0, createdAt: 'x', updatedAt: 'x', sourcePath: 'C:/secret/internal' }];
     const { invoke } = harness(services);
     const result = await invoke(DESKTOP_CHANNELS.extensionsList);
     expect(result.ok).toBe(true);
@@ -66,22 +67,23 @@ describe('phase 4 IPC', () => {
   it('passes selected import source only inward and returns sanitized extension DTO', async () => {
     let seenPath = '';
     const services = baseServices();
-    services.extensions.importCrx = async (sourcePath: string) => { seenPath = sourcePath; return { id: 'e1', name: 'Ext', version: '1', sourceType: 'crx', enabled: true, profileCount: 0, groupCount: 0, createdAt: 'x', updatedAt: 'x', sourcePath: 'C:/managed/e1' }; };
+    services.extensions.importCrx = async (sourcePath: string) => { seenPath = sourcePath; return { id: A, name: 'Ext', version: '1', sourceType: 'crx', enabled: true, profileCount: 0, groupCount: 0, createdAt: 'x', updatedAt: 'x', sourcePath: 'C:/managed/e1' }; };
     const { invoke } = harness(services);
     const result = await invoke(DESKTOP_CHANNELS.extensionsImportCrx, { sourcePath: 'C:/Users/Test/ext.crx' });
     expect(seenPath).toBe('C:/Users/Test/ext.crx');
     expect(JSON.stringify(result.data)).not.toContain('C:/managed');
   });
 
-  it('passes through ordered bulk partial results', async () => {
+  it('passes through ordered bulk partial results without runtime paths', async () => {
     const services = baseServices();
     services.bulk.startProfiles = async () => [
-      { id: 'a', success: true, data: { profileId: 'a' } },
-      { id: 'b', success: false, error: { code: 'BROWSER_START_FAILED', message: 'failed' } }
+      { id: A, success: true, data: { profileId: A, state: 'running', startedAt: 'x', executablePath: 'C:/secret/chrome.exe' } },
+      { id: B, success: false, error: { code: 'BROWSER_START_FAILED', message: 'failed' } }
     ];
     const { invoke } = harness(services);
-    const result = await invoke(DESKTOP_CHANNELS.bulkStart, { ids: ['a', 'b'], concurrency: 3 });
+    const result = await invoke(DESKTOP_CHANNELS.bulkStart, { ids: [A, B], concurrency: 3 });
     expect(result.ok).toBe(true);
     expect(result.data.map((item: any) => item.success)).toEqual([true, false]);
+    expect(JSON.stringify(result.data)).not.toContain('executablePath');
   });
 });
