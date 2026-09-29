@@ -9,6 +9,7 @@ import {
 interface BulkBrowsers {
   start(id: string): Promise<BrowserRuntimeInfo>;
   stop(id: string): Promise<void>;
+  getState(id: string): string;
 }
 
 interface BulkProfiles {
@@ -73,7 +74,12 @@ export class BulkOperationService {
   }
 
   async softDelete(ids: readonly string[]): Promise<BulkItemResult<null>[]> {
-    return this.runMetadata(ids, (id) => this.deps.profiles.softDelete(id));
+    return this.runMetadata(ids, async (id) => {
+      if (this.deps.browsers.getState(id) !== 'stopped') {
+        throw new AppError('INVALID_REQUEST', 'Stop the profile before deleting it');
+      }
+      await this.deps.profiles.softDelete(id);
+    });
   }
 
   private async runMetadata(ids: readonly string[], operation: (id: string) => void | Promise<unknown>): Promise<BulkItemResult<null>[]> {
