@@ -57,7 +57,7 @@ function openZip(path: string): Promise<yauzl.ZipFile> {
   });
 }
 
-function openEntryStream(zipFile: yauzl.ZipFile, entry: yauzl.Entry): Promise<NodeJS.ReadableStream> {
+function openEntryStream(zipFile: yauzl.ZipFile, entry: yauzl.Entry): Promise<any> {
   return new Promise((resolvePromise, reject) => {
     zipFile.openReadStream(entry, (error, stream) => {
       if (error || !stream) reject(error ?? invalidExtension('Unable to read extension archive entry'));
