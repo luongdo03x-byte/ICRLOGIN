@@ -46,6 +46,24 @@ describe('LocalApiServer', () => {
     }
   });
 
+  it('authenticates protected paths before returning method-not-allowed', async () => {
+    const router = new LocalApiRouter();
+    router.register('GET', '/api/v1/protected', () => ({ success: true, data: { ok: true }, error: null }));
+    const server = new LocalApiServer({ port: 0, bearerToken: 'secret', services: {}, router });
+    const info = await server.start();
+    try {
+      expect((await json(`${info.baseUrl}/api/v1/protected`, { method: 'POST' })).status).toBe(401);
+      const authorized = await json(`${info.baseUrl}/api/v1/protected`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer secret' }
+      });
+      expect(authorized.status).toBe(405);
+      expect(authorized.body.error.code).toBe('METHOD_NOT_ALLOWED');
+    } finally {
+      await server.stop();
+    }
+  });
+
   it('distinguishes method-not-allowed and rate-limits clients', async () => {
     const server = new LocalApiServer({ port: 0, rateLimitPerSecond: 2, services: {} });
     const info = await server.start();
