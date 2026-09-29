@@ -1,4 +1,5 @@
 import { httpOk } from '@icrlogin/shared';
+import { LOCAL_API_OPENAPI } from './openapi.js';
 import { registerBrowserRoutes } from './routes/browser-routes.js';
 import { registerGroupRoutes } from './routes/group-routes.js';
 import { registerProfileRoutes } from './routes/profile-routes.js';
@@ -52,6 +53,7 @@ export class LocalApiRouter {
 export function createBaseLocalApiRouter(): LocalApiRouter {
   const router = new LocalApiRouter();
   router.register('GET', '/api/v1/health', () => httpOk({ status: 'ok' as const }), { public: true });
+  router.register('GET', '/api/v1/openapi.json', () => LOCAL_API_OPENAPI, { public: true });
   return router;
 }
 
