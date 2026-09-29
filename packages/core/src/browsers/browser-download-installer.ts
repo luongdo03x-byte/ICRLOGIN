@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { AppError, type BrowserManifestEntry } from '@icrlogin/shared';
@@ -30,6 +30,15 @@ function parseContentLength(response: Response, fallback: number): number | null
     if (Number.isFinite(parsed) && parsed > 0) return parsed;
   }
   return fallback > 0 ? fallback : null;
+}
+
+export async function removeManagedBrowser(paths: AppPaths, version: string): Promise<void> {
+  const root = resolve(paths.browsersDir);
+  const target = resolve(root, version);
+  if (dirname(target) !== root) {
+    throw new AppError('BROWSER_ARCHIVE_INVALID', 'Invalid managed browser version path');
+  }
+  await rm(target, { recursive: true, force: false });
 }
 
 export class BrowserDownloadInstaller {
