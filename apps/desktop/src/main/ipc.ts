@@ -32,7 +32,7 @@ export function registerIpcHandlers(ipcMain:IpcMainLike,services:AppServices,opt
   ipcMain.handle(DESKTOP_CHANNELS.groupsList,()=>respond(()=>services.groups.list()));
   ipcMain.handle(DESKTOP_CHANNELS.groupsCreate,(_event,payload)=>respond(()=>{const{input}=parsePayload(DesktopPayloadSchemas.groupCreate,payload);return services.groups.create(input);}));
   ipcMain.handle(DESKTOP_CHANNELS.groupsUpdate,(_event,payload)=>respond(()=>{const{id,input}=parsePayload(DesktopPayloadSchemas.groupUpdate,payload);return services.groups.update(id,input);}));
-  ipcMain.handle(DESKTOP_CHANNELS.groupsDelete,(_event,payload)=>respond(()=>{const{id}=parsePayload(DesktopPayloadSchemas.id,payload);services.groups.delete(id);return null;}));
+  ipcMain.handle(DESKTOP_CHANNELS.groupsDelete,(_event,payload)=>respond(async()=>{const{id}=parsePayload(DesktopPayloadSchemas.id,payload);await services.groups.delete(id);return null;}));
   ipcMain.handle(DESKTOP_CHANNELS.proxiesList,()=>respond(async()=> (await services.proxies.list()).map(sanitizeProxy)));
   ipcMain.handle(DESKTOP_CHANNELS.proxiesGet,(_event,payload)=>respond(async()=>{const{id}=parsePayload(DesktopPayloadSchemas.id,payload);const proxy=await services.proxies.get(id);if(!proxy)throw new AppError('PROXY_INVALID','Proxy not found');return sanitizeProxy(proxy);}));
   ipcMain.handle(DESKTOP_CHANNELS.proxiesCreate,(_event,payload)=>respond(async()=>{const{input}=parsePayload(DesktopPayloadSchemas.proxyCreate,payload);return sanitizeProxy(await services.proxies.create(input));}));
