@@ -104,7 +104,7 @@ export interface BackupRecordPublic {
   profileId: string | null;
   mode: BackupMode;
   fileName: string;
-  checksum: string;
+  checksum: string | null;
   status: BackupHistoryStatus;
   createdAt: string;
 }
