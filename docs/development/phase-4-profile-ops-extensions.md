@@ -42,12 +42,15 @@ Phase 4 does not add fingerprint spoofing, stealth extensions, CAPTCHA bypass, p
 ## Runtime safety
 
 - Full clone is serialized with BrowserService using the same `ProfileOperationLock` and re-checks `stopped` while holding the lock.
-- Extension mutations use `ProfileMutationCoordinator`, which acquires the same shared profile operation locks used by browser start/stop and re-checks runtime state while the lock is held.
+- `ProfileMutationCoordinator` is the shared runtime-sensitive mutation gate. It acquires the same per-profile locks as BrowserService and checks the runtime registry while those locks are held.
+- Browser-version changes, group moves, soft deletes, and group deletion are routed through that shared gate so `start()` cannot race a metadata mutation that changes the next/effective browser environment.
+- Deleting a group locks all active member profiles before moving them to Ungrouped.
+- Extension metadata mutations are serialized through one Core mutation queue before acquiring profile locks. This keeps extension assignment membership stable between the affected-profile snapshot and the locked mutation.
 - Profile extension assignment/removal and template-applied extension sets require affected profiles to remain stopped through the mutation.
 - Group extension changes lock all affected profiles in stable order before changing assignment metadata.
-- Enable/disable/delete lock all profiles affected by the extension before mutation, preventing a browser-start TOCTOU race.
+- Enable/disable/delete lock all profiles affected by the extension before mutation, preventing browser-start and assignment TOCTOU races.
 - Extension deletion stages filesystem removal before metadata deletion and rolls the filesystem rename back when metadata deletion fails.
-- Bulk delete checks each profile runtime state in Core; a running profile fails that item without rolling back unrelated successes.
+- Bulk operations keep per-item partial results; a blocked runtime-sensitive item does not roll back unrelated successes.
 
 ## Verification state
 
@@ -60,10 +63,12 @@ Fresh semantic checks performed during Phase 4 include:
 - Tag repository/service focused gate on SQLite: uniqueness, idempotent set/add/remove, delete cascade, unknown references and batch profile/tag projection.
 - Clone/template focused filesystem gate: clean config clone, full user-data clone, rollback and stale-reference validation.
 - Full-clone TOCTOU regression: source runtime state is re-checked while holding the shared profile lock, so a concurrent start prevents the clone before user-data copy.
+- Extension global-mutation serialization regression: a new profile assignment cannot interleave with extension enable/disable/delete.
 - Extension mutation TOCTOU regression: extension mutations wait on the same profile lock as BrowserService and fail if the browser has become running before mutation begins.
+- Group move/delete runtime regressions: effective group extensions cannot change while affected profiles are running; group deletion does not ungroup members when the runtime gate rejects the operation.
 - Extension importer/service semantic gate: unpacked and CRX header handling, unsafe path rejection, invalid manifest cleanup, post-copy symlink re-scan, assignments, dedupe and public DTO path redaction.
 - Extension delete atomicity regression: metadata failure triggers filesystem rollback; metadata success commits staged removal only afterward.
 - Bulk service semantic gate: bounded default concurrency, ordering, duplicate IDs, partial failures and per-item results.
 - Fresh Chromium 144 smoke in the sandbox: a minimal unpacked extension launches with `--load-extension`, the remote-debugging endpoint returns a WebSocket debugger URL, and the Chromium process is cleaned up afterward.
 
-Full workspace `npm install / typecheck / test / lint / build` is not claimed from the sandbox because outbound package installation is unavailable. The GitHub Actions run for current Phase-4 head `f47510c1c2f2b436264a0aad7d756671e70f7eba` failed before executing any job step (`runner_id=0`, `steps=[]`), so it provides no code/test result. A Windows 10/11 Electron application smoke remains a release gate before shipping.
+Full workspace `npm install / typecheck / test / lint / build` is not claimed from the sandbox because outbound package installation is unavailable. GitHub Actions on this Phase-4 branch has repeatedly failed before executing any job step (`runner_id=0`, `steps=[]`), so those runs provide no code/test result. A Windows 10/11 Electron application smoke remains a release gate before shipping.
