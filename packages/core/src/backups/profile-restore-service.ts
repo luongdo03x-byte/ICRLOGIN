@@ -39,6 +39,7 @@ interface RestoreArchiveReader {
 export interface ProfileRestoreServiceOptions {
   idFactory?: () => string;
   now?: () => string;
+  beforeMutation?: () => Promise<void>;
 }
 
 export interface ProfileRestoreServiceDependencies {
@@ -156,6 +157,7 @@ export class ProfileRestoreService {
           deletedAt: null
         };
 
+        await this.deps.options?.beforeMutation?.();
         this.deps.profiles.create(profile);
         profileCreated = true;
         this.deps.relations.setProfileTags(createdProfileId, retainedTagIds);
