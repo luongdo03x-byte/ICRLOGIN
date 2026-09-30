@@ -8,21 +8,33 @@ import {
   type Profile,
   type UpdateProfileInput
 } from '@icrlogin/shared';
+import type { BrowserLifecycleState } from '../browsers/browser-service.js';
+import type { ProfileOperationLock } from '../browsers/operation-lock.js';
 import { ProfileFiles } from './profile-files.js';
 import { ProfileRepository } from '../repositories/profile-repository.js';
 
-export interface ProfileServiceOptions { idFactory?: () => string; now?: () => string; }
+export interface ProfileServiceOptions {
+  idFactory?: () => string;
+  now?: () => string;
+  browsers?: { getState(profileId: string): BrowserLifecycleState };
+  operationLock?: ProfileOperationLock;
+}
 function invalidRequest(): AppError { return new AppError('INVALID_REQUEST', 'Invalid profile input'); }
 
 export class ProfileService {
   private readonly idFactory: () => string;
   private readonly now: () => string;
+  private readonly browsers?: { getState(profileId: string): BrowserLifecycleState };
+  private readonly operationLock?: ProfileOperationLock;
   constructor(private readonly repository: ProfileRepository, private readonly files: ProfileFiles, options: ProfileServiceOptions = {}) {
     this.idFactory = options.idFactory ?? randomUUID;
     this.now = options.now ?? (() => new Date().toISOString());
+    this.browsers = options.browsers;
+    this.operationLock = options.operationLock;
   }
 
   async list(): Promise<Profile[]> { return this.repository.list(); }
+  async listTrash(): Promise<Profile[]> { return this.repository.listTrash(); }
 
   async create(input: CreateProfileInput): Promise<Profile> {
     let parsed: CreateProfileInput;
@@ -72,5 +84,27 @@ export class ProfileService {
       if (!restored) throw new AppError('PROFILE_NOT_FOUND', 'Profile not found');
       return restored;
     } catch (error) { await this.files.moveToTrash(id); throw error; }
+  }
+
+  async permanentDelete(id: string): Promise<void> {
+    const operation = async (): Promise<void> => {
+      const existing = this.repository.getById(id, { includeDeleted: true });
+      if (!existing) throw new AppError('PROFILE_NOT_FOUND', 'Profile not found');
+      if (existing.deletedAt === null) throw new AppError('INVALID_REQUEST', 'Only deleted profiles can be permanently deleted');
+      if (this.browsers && this.browsers.getState(id) !== 'stopped') {
+        throw new AppError('INVALID_REQUEST', 'Running profiles cannot be permanently deleted');
+      }
+      const stagedPath = await this.files.stageTrashPurge(id);
+      try {
+        this.repository.deleteById(id);
+      } catch (error) {
+        await this.files.rollbackTrashPurge(stagedPath, id);
+        throw error;
+      }
+      await this.files.commitTrashPurge(stagedPath);
+    };
+
+    if (this.operationLock) await this.operationLock.runExclusive(id, operation);
+    else await operation();
   }
 }
