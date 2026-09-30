@@ -54,6 +54,18 @@ describe('phase 4 IPC', () => {
     expect(fullCalls).toBe(0);
   });
 
+  it('blocks group changes while the profile is running because effective extensions can change', async () => {
+    let updateCalls = 0;
+    const services = baseServices();
+    services.browsers.getState = () => 'running';
+    services.profiles.update = async () => { updateCalls += 1; return {}; };
+    const { invoke } = harness(services);
+    const result = await invoke(DESKTOP_CHANNELS.profilesUpdate, { id: A, input: { groupId: B } });
+    expect(result.ok).toBe(false);
+    expect(result.error.code).toBe('INVALID_REQUEST');
+    expect(updateCalls).toBe(0);
+  });
+
   it('redacts internal extension paths even if a service returns one', async () => {
     const services = baseServices();
     services.extensions.list = () => [{ id: A, name: 'Ext', version: '1.0', sourceType: 'unpacked', enabled: true, profileCount: 0, groupCount: 0, createdAt: 'x', updatedAt: 'x', sourcePath: 'C:/secret/internal' }];
