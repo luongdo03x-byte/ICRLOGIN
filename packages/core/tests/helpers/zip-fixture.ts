@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 export interface ZipFixtureEntry {
   name: string;
   content: string | Uint8Array;
+  externalFileAttributes?: number;
 }
 
 function crc32(data: Uint8Array): number {
@@ -44,7 +45,7 @@ export async function writeStoredZip(path: string, entries: ZipFixtureEntry[]): 
 
     const central = Buffer.alloc(46 + name.length);
     central.writeUInt32LE(0x02014b50, 0);
-    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(0x031e, 4);
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(0, 8);
     central.writeUInt16LE(0, 10);
@@ -58,7 +59,7 @@ export async function writeStoredZip(path: string, entries: ZipFixtureEntry[]): 
     central.writeUInt16LE(0, 32);
     central.writeUInt16LE(0, 34);
     central.writeUInt16LE(0, 36);
-    central.writeUInt32LE(0, 38);
+    central.writeUInt32LE(entry.externalFileAttributes ?? 0, 38);
     central.writeUInt32LE(localOffset, 42);
     Buffer.from(name).copy(central, 46);
     centralParts.push(central);
