@@ -9,9 +9,18 @@ import {
 } from '@icrlogin/shared';
 import { GroupRepository } from '../repositories/group-repository.js';
 
+interface GroupProfileMutations {
+  runWithStoppedProfiles<T>(
+    profileIds: readonly string[],
+    operation: () => Promise<T> | T,
+    message?: string
+  ): Promise<T>;
+}
+
 export interface GroupServiceOptions {
   idFactory?: () => string;
   now?: () => string;
+  profileMutations?: GroupProfileMutations;
 }
 
 function invalidGroup(message: string): AppError {
@@ -21,6 +30,7 @@ function invalidGroup(message: string): AppError {
 export class GroupService {
   private readonly idFactory: () => string;
   private readonly now: () => string;
+  private readonly profileMutations?: GroupProfileMutations;
 
   constructor(
     private readonly repository: GroupRepository,
@@ -28,6 +38,7 @@ export class GroupService {
   ) {
     this.idFactory = options.idFactory ?? randomUUID;
     this.now = options.now ?? (() => new Date().toISOString());
+    this.profileMutations = options.profileMutations;
   }
 
   list(): Group[] {
@@ -74,8 +85,17 @@ export class GroupService {
     }
   }
 
-  delete(id: string): void {
+  async delete(id: string): Promise<void> {
     if (!this.repository.getById(id)) throw invalidGroup('Group not found');
-    this.repository.deleteAndUngroupProfiles(id);
+    const operation = () => this.repository.deleteAndUngroupProfiles(id);
+    if (!this.profileMutations) {
+      operation();
+      return;
+    }
+    await this.profileMutations.runWithStoppedProfiles(
+      this.repository.profileIds(id),
+      operation,
+      'Stop group profiles before deleting the group'
+    );
   }
 }
