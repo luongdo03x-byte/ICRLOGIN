@@ -2,6 +2,7 @@ export * from './app-paths.js';
 export * from './backups/archive-reader.js';
 export * from './backups/archive-safety.js';
 export * from './backups/archive-writer.js';
+export * from './backups/database-backup-service.js';
 export * from './backups/profile-backup-service.js';
 export * from './backups/profile-restore-service.js';
 export * from './backups/profile-config-transfer-service.js';
