@@ -8,191 +8,24 @@ import { AppError, type ExtensionSourceType } from '@icrlogin/shared';
 import type { AppPaths } from '../app-paths.js';
 import { writeCrxZipPayload } from './crx-reader.js';
 
-export interface ImportedExtension {
-  id: string;
-  name: string;
-  version: string;
-  sourceType: ExtensionSourceType;
-  sourcePath: string;
-}
-
-export type SafeZipExtractor = (zipPath: string, destinationDir: string) => Promise<void>;
-
-function invalidExtension(message: string): AppError {
-  return new AppError('INVALID_REQUEST', message);
-}
-
-export function safeExtensionRelativePath(value: string): string[] {
-  if (!value || value.includes('\0')) throw invalidExtension('Invalid extension archive path');
-  const portable = value.replace(/\\/g, '/');
-  if (portable.startsWith('/') || /^[A-Za-z]:\//.test(portable)) {
-    throw invalidExtension('Extension archive contains an absolute path');
-  }
-  const parts = portable.split('/').filter((part) => part.length > 0 && part !== '.');
-  if (parts.length === 0 || parts.some((part) => part === '..')) {
-    throw invalidExtension('Extension archive path escapes destination');
-  }
-  return parts;
-}
-
-export function validateExtensionManifest(value: unknown): { name: string; version: string } {
-  if (!value || typeof value !== 'object') throw invalidExtension('Invalid extension manifest');
-  const manifest = value as Record<string, unknown>;
-  if (typeof manifest.name !== 'string' || !manifest.name.trim()) throw invalidExtension('Invalid extension name');
-  if (typeof manifest.version !== 'string' || !/^\d+(?:\.\d+){0,3}$/.test(manifest.version)) {
-    throw invalidExtension('Invalid extension version');
-  }
-  if (manifest.manifest_version !== 2 && manifest.manifest_version !== 3) {
-    throw invalidExtension('Unsupported extension manifest version');
-  }
-  return { name: manifest.name.trim(), version: manifest.version };
-}
-
-function openZip(path: string): Promise<yauzl.ZipFile> {
-  return new Promise((resolvePromise, reject) => {
-    yauzl.open(path, { lazyEntries: true, decodeStrings: true, validateEntrySizes: true, strictFileNames: true }, (error, zipFile) => {
-      if (error || !zipFile) reject(error ?? invalidExtension('Unable to open extension archive'));
-      else resolvePromise(zipFile);
-    });
-  });
-}
-
-function openEntryStream(zipFile: yauzl.ZipFile, entry: yauzl.Entry): Promise<any> {
-  return new Promise((resolvePromise, reject) => {
-    zipFile.openReadStream(entry, (error, stream) => {
-      if (error || !stream) reject(error ?? invalidExtension('Unable to read extension archive entry'));
-      else resolvePromise(stream);
-    });
-  });
-}
-
-function entryIsSymlink(entry: yauzl.Entry): boolean {
-  const mode = (entry.externalFileAttributes >>> 16) & 0xffff;
-  return (mode & 0o170000) === 0o120000;
-}
-
-export async function extractExtensionZip(zipPath: string, destinationDir: string): Promise<void> {
-  const root = resolve(destinationDir);
-  const zipFile = await openZip(zipPath);
-  await new Promise<void>((resolvePromise, reject) => {
-    let settled = false;
-    const fail = (error: unknown) => {
-      if (settled) return;
-      settled = true;
-      zipFile.close();
-      reject(error instanceof AppError ? error : invalidExtension('Extension archive extraction failed'));
-    };
-
-    zipFile.on('error', fail);
-    zipFile.on('end', () => {
-      if (settled) return;
-      settled = true;
-      resolvePromise();
-    });
-    zipFile.on('entry', (entry) => {
-      void (async () => {
-        if (entryIsSymlink(entry)) throw invalidExtension('Extension archive symlinks are not allowed');
-        const parts = safeExtensionRelativePath(entry.fileName);
-        const target = resolve(root, ...parts);
-        const rel = relative(root, target);
-        if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-          throw invalidExtension('Extension archive path escapes destination');
-        }
-        if (entry.fileName.replace(/\\/g, '/').endsWith('/')) {
-          await mkdir(target, { recursive: true });
-        } else {
-          await mkdir(dirname(target), { recursive: true });
-          const stream = await openEntryStream(zipFile, entry);
-          await pipeline(stream, createWriteStream(target, { flags: 'wx' }));
-        }
-        zipFile.readEntry();
-      })().catch(fail);
-    });
-    zipFile.readEntry();
-  });
-}
-
-async function assertUnpackedTreeSafe(root: string): Promise<void> {
-  const rootStat = await lstat(root);
-  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw invalidExtension('Unpacked extension source must be a real directory');
-  const pending = [root];
-  while (pending.length > 0) {
-    const current = pending.pop()!;
-    const entries = await readdir(current, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isSymbolicLink()) throw invalidExtension('Unpacked extension symlinks are not allowed');
-      if (entry.isDirectory()) pending.push(resolve(current, entry.name));
-    }
-  }
-}
-
-async function readManifest(directory: string): Promise<{ name: string; version: string }> {
-  try {
-    const text = await readFile(resolve(directory, 'manifest.json'), 'utf8');
-    return validateExtensionManifest(JSON.parse(text) as unknown);
-  } catch (error) {
-    if (error instanceof AppError) throw error;
-    throw invalidExtension('Extension manifest.json is missing or malformed');
-  }
-}
+export interface ImportedExtension { id:string;name:string;version:string;sourceType:ExtensionSourceType;sourcePath:string; }
+export type SafeZipExtractor=(zipPath:string,destinationDir:string)=>Promise<void>;
+export type DirectoryCopier=(sourceDir:string,destinationDir:string)=>Promise<void>;
+const defaultDirectoryCopier:DirectoryCopier=(source,destination)=>cp(source,destination,{recursive:true,dereference:false,force:false,errorOnExist:true});
+function invalidExtension(message:string):AppError{return new AppError('INVALID_REQUEST',message);}
+export function safeExtensionRelativePath(value:string):string[]{if(!value||value.includes('\0'))throw invalidExtension('Invalid extension archive path');const portable=value.replace(/\\/g,'/');if(portable.startsWith('/')||/^[A-Za-z]:\//.test(portable))throw invalidExtension('Extension archive contains an absolute path');const parts=portable.split('/').filter(part=>part.length>0&&part!=='.');if(parts.length===0||parts.some(part=>part==='..'))throw invalidExtension('Extension archive path escapes destination');return parts;}
+export function validateExtensionManifest(value:unknown):{name:string;version:string}{if(!value||typeof value!=='object')throw invalidExtension('Invalid extension manifest');const manifest=value as Record<string,unknown>;if(typeof manifest.name!=='string'||!manifest.name.trim())throw invalidExtension('Invalid extension name');if(typeof manifest.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(manifest.version))throw invalidExtension('Invalid extension version');if(manifest.manifest_version!==2&&manifest.manifest_version!==3)throw invalidExtension('Unsupported extension manifest version');return{name:manifest.name.trim(),version:manifest.version};}
+function openZip(path:string):Promise<yauzl.ZipFile>{return new Promise((resolvePromise,reject)=>{yauzl.open(path,{lazyEntries:true,decodeStrings:true,validateEntrySizes:true,strictFileNames:true},(error,zipFile)=>{if(error||!zipFile)reject(error??invalidExtension('Unable to open extension archive'));else resolvePromise(zipFile);});});}
+function openEntryStream(zipFile:yauzl.ZipFile,entry:yauzl.Entry):Promise<any>{return new Promise((resolvePromise,reject)=>{zipFile.openReadStream(entry,(error,stream)=>{if(error||!stream)reject(error??invalidExtension('Unable to read extension archive entry'));else resolvePromise(stream);});});}
+function entryIsSymlink(entry:yauzl.Entry):boolean{const mode=(entry.externalFileAttributes>>>16)&0xffff;return(mode&0o170000)===0o120000;}
+export async function extractExtensionZip(zipPath:string,destinationDir:string):Promise<void>{const root=resolve(destinationDir);const zipFile=await openZip(zipPath);await new Promise<void>((resolvePromise,reject)=>{let settled=false;const fail=(error:unknown)=>{if(settled)return;settled=true;zipFile.close();reject(error instanceof AppError?error:invalidExtension('Extension archive extraction failed'));};zipFile.on('error',fail);zipFile.on('end',()=>{if(settled)return;settled=true;resolvePromise();});zipFile.on('entry',(entry)=>{void(async()=>{if(entryIsSymlink(entry))throw invalidExtension('Extension archive symlinks are not allowed');const parts=safeExtensionRelativePath(entry.fileName);const target=resolve(root,...parts);const rel=relative(root,target);if(rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel))throw invalidExtension('Extension archive path escapes destination');if(entry.fileName.replace(/\\/g,'/').endsWith('/'))await mkdir(target,{recursive:true});else{await mkdir(dirname(target),{recursive:true});const stream=await openEntryStream(zipFile,entry);await pipeline(stream,createWriteStream(target,{flags:'wx'}));}zipFile.readEntry();})().catch(fail);});zipFile.readEntry();});}
+async function assertUnpackedTreeSafe(root:string):Promise<void>{const rootStat=await lstat(root);if(!rootStat.isDirectory()||rootStat.isSymbolicLink())throw invalidExtension('Unpacked extension source must be a real directory');const pending=[root];while(pending.length>0){const current=pending.pop()!;const entries=await readdir(current,{withFileTypes:true});for(const entry of entries){if(entry.isSymbolicLink())throw invalidExtension('Unpacked extension symlinks are not allowed');if(entry.isDirectory())pending.push(resolve(current,entry.name));}}}
+async function readManifest(directory:string):Promise<{name:string;version:string}>{try{const text=await readFile(resolve(directory,'manifest.json'),'utf8');return validateExtensionManifest(JSON.parse(text) as unknown);}catch(error){if(error instanceof AppError)throw error;throw invalidExtension('Extension manifest.json is missing or malformed');}}
 
 export class ExtensionImporter {
-  constructor(
-    private readonly paths: AppPaths,
-    private readonly idFactory: () => string = randomUUID,
-    private readonly zipExtractor: SafeZipExtractor = extractExtensionZip
-  ) {}
-
-  async importUnpacked(sourceDir: string): Promise<ImportedExtension> {
-    const source = resolve(sourceDir);
-    const root = resolve(this.paths.extensionsDir);
-    const rel = relative(root, source);
-    if (rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel))) {
-      throw invalidExtension('Cannot import an extension from the managed extension directory');
-    }
-    await assertUnpackedTreeSafe(source);
-    return this.importIntoManagedRoot('unpacked', async (stagingDir) => {
-      await cp(source, stagingDir, { recursive: true, dereference: false, force: false, errorOnExist: true });
-    });
-  }
-
-  async importCrx(crxPath: string): Promise<ImportedExtension> {
-    await mkdir(this.paths.downloadsTempDir, { recursive: true });
-    const tempZip = resolve(this.paths.downloadsTempDir, `extension-${randomUUID()}.zip`);
-    try {
-      await writeCrxZipPayload(resolve(crxPath), tempZip);
-      return await this.importIntoManagedRoot('crx', async (stagingDir) => {
-        await mkdir(stagingDir, { recursive: false });
-        await this.zipExtractor(tempZip, stagingDir);
-      });
-    } finally {
-      await rm(tempZip, { force: true });
-    }
-  }
-
-  async removeInternal(sourcePath: string): Promise<void> {
-    const root = resolve(this.paths.extensionsDir);
-    const target = resolve(sourcePath);
-    if (target === root || dirname(target) !== root) throw invalidExtension('Extension path is outside the managed root');
-    await rm(target, { recursive: true, force: false });
-  }
-
-  private async importIntoManagedRoot(sourceType: ExtensionSourceType, populate: (stagingDir: string) => Promise<void>): Promise<ImportedExtension> {
-    await mkdir(this.paths.extensionsDir, { recursive: true });
-    const id = this.idFactory();
-    const root = resolve(this.paths.extensionsDir);
-    const stagingDir = resolve(root, `.staging-${id}-${randomUUID()}`);
-    const finalDir = resolve(root, id);
-    if (dirname(finalDir) !== root || dirname(stagingDir) !== root) throw invalidExtension('Invalid managed extension path');
-    try {
-      await populate(stagingDir);
-      const manifest = await readManifest(stagingDir);
-      await rename(stagingDir, finalDir);
-      return { id, name: manifest.name, version: manifest.version, sourceType, sourcePath: finalDir };
-    } catch (error) {
-      await rm(stagingDir, { recursive: true, force: true });
-      if (error instanceof AppError) throw error;
-      throw invalidExtension('Extension import failed');
-    }
-  }
+  constructor(private readonly paths:AppPaths,private readonly idFactory:()=>string=randomUUID,private readonly zipExtractor:SafeZipExtractor=extractExtensionZip,private readonly directoryCopier:DirectoryCopier=defaultDirectoryCopier){}
+  async importUnpacked(sourceDir:string):Promise<ImportedExtension>{const source=resolve(sourceDir);const root=resolve(this.paths.extensionsDir);const rel=relative(root,source);if(rel===''||(!rel.startsWith(`..${sep}`)&&rel!=='..'&&!isAbsolute(rel)))throw invalidExtension('Cannot import an extension from the managed extension directory');await assertUnpackedTreeSafe(source);return this.importIntoManagedRoot('unpacked',async(stagingDir)=>{await this.directoryCopier(source,stagingDir);await assertUnpackedTreeSafe(stagingDir);});}
+  async importCrx(crxPath:string):Promise<ImportedExtension>{await mkdir(this.paths.downloadsTempDir,{recursive:true});const tempZip=resolve(this.paths.downloadsTempDir,`extension-${randomUUID()}.zip`);try{await writeCrxZipPayload(resolve(crxPath),tempZip);return await this.importIntoManagedRoot('crx',async(stagingDir)=>{await mkdir(stagingDir,{recursive:false});await this.zipExtractor(tempZip,stagingDir);});}finally{await rm(tempZip,{force:true});}}
+  async removeInternal(sourcePath:string):Promise<void>{const root=resolve(this.paths.extensionsDir);const target=resolve(sourcePath);if(target===root||dirname(target)!==root)throw invalidExtension('Extension path is outside the managed root');await rm(target,{recursive:true,force:false});}
+  private async importIntoManagedRoot(sourceType:ExtensionSourceType,populate:(stagingDir:string)=>Promise<void>):Promise<ImportedExtension>{await mkdir(this.paths.extensionsDir,{recursive:true});const id=this.idFactory();const root=resolve(this.paths.extensionsDir);const stagingDir=resolve(root,`.staging-${id}-${randomUUID()}`);const finalDir=resolve(root,id);if(dirname(finalDir)!==root||dirname(stagingDir)!==root)throw invalidExtension('Invalid managed extension path');try{await populate(stagingDir);const manifest=await readManifest(stagingDir);await rename(stagingDir,finalDir);return{id,name:manifest.name,version:manifest.version,sourceType,sourcePath:finalDir};}catch(error){await rm(stagingDir,{recursive:true,force:true});if(error instanceof AppError)throw error;throw invalidExtension('Extension import failed');}}
 }
