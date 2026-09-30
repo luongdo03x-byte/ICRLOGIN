@@ -1,10 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { cp, mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
 import type { AppPaths } from '../app-paths.js';
 
 export interface ProfileFilesHooks {
   afterStagingCreated?(stagingDir: string): Promise<void>;
+}
+
+export interface ManagedProfileFile {
+  absolutePath: string;
+  relativePath: string;
 }
 
 function childPath(root: string, segment: string): string {
@@ -62,6 +67,28 @@ export class ProfileFiles {
       await rm(stagingDir, { recursive: true, force: true });
       throw error;
     }
+  }
+
+  async listUserDataFiles(profileId: string): Promise<ManagedProfileFile[]> {
+    const userDataRoot = resolve(childPath(this.paths.profilesDir, profileId), 'user-data');
+    const result: ManagedProfileFile[] = [];
+    const pending = [userDataRoot];
+    while (pending.length > 0) {
+      const current = pending.pop()!;
+      const names = await readdir(current);
+      names.sort((a, b) => a.localeCompare(b));
+      for (const name of names) {
+        const target = resolve(current, name);
+        const rel = relative(userDataRoot, target);
+        if (!rel || rel === '..' || rel.startsWith(`..${sep}`)) throw new Error('Profile user-data path escapes managed root');
+        const stat = await lstat(target);
+        if (stat.isSymbolicLink()) throw new Error('Profile user-data symlinks are not supported for backup');
+        if (stat.isDirectory()) pending.push(target);
+        else if (stat.isFile()) result.push({ absolutePath: target, relativePath: rel.split(sep).join('/') });
+        else throw new Error('Unsupported profile user-data entry');
+      }
+    }
+    return result.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   }
 
   async remove(profileId: string): Promise<void> {
