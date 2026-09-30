@@ -14,7 +14,7 @@ describe('StartupRecoveryService',()=>{
       await mkdir(join(paths.browsersDir,'.staging-144'));await mkdir(join(paths.browsersDir,'144'));
       await writeFile(join(paths.downloadsTempDir,'browser-144-x.zip.part'),'x');await writeFile(join(paths.downloadsTempDir,'keep.txt'),'x');
       const service=new StartupRecoveryService({db:{pragma:()=> 'database disk image is malformed'} as any,paths});
-      const report=await service.run();expect(report.databaseHealthy).toBe(false);expect(report.cleanedEntries).toBe(4);
+      const report=await service.run();expect(report.databaseHealthy).toBe(false);expect(report.cleanedEntries).toBe(5);
       expect(await readdir(paths.profilesDir)).toEqual(['keep-profile']);expect((await readdir(paths.trashDir)).sort()).toEqual(['keep-trash']);
       expect((await readdir(paths.browsersDir)).sort()).toEqual(['144']);expect((await readdir(paths.downloadsTempDir)).sort()).toEqual(['keep.txt']);
     }finally{await removeTempRoot(root);}
