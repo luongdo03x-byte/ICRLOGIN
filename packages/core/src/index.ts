@@ -14,6 +14,7 @@ export * from './browsers/process-registry.js';
 export * from './extensions/crx-reader.js';
 export * from './extensions/extension-importer.js';
 export * from './extensions/extension-service.js';
+export * from './extensions/profile-mutation-coordinator.js';
 export * from './groups/group-service.js';
 export * from './profiles/profile-clone-service.js';
 export * from './profiles/profile-files.js';
