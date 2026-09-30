@@ -7,5 +7,6 @@ export * from './tag.js';
 export * from './extension.js';
 export * from './profile-template.js';
 export * from './bulk.js';
+export * from './backup.js';
 export * from './desktop-api.js';
 export * from './http-api.js';
