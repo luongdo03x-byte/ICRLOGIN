@@ -1,4 +1,8 @@
 export * from './app-paths.js';
+export * from './backups/archive-reader.js';
+export * from './backups/archive-safety.js';
+export * from './backups/archive-writer.js';
+export * from './backups/profile-backup-service.js';
 export * from './bulk/bulk-operation-service.js';
 export * from './db/database.js';
 export * from './db/migrate.js';
@@ -23,6 +27,7 @@ export * from './profiles/profile-template-service.js';
 export * from './proxies/proxy-connectivity-service.js';
 export * from './proxies/proxy-service.js';
 export * from './tags/tag-service.js';
+export * from './repositories/backup-history-repository.js';
 export * from './repositories/browser-version-repository.js';
 export * from './repositories/extension-repository.js';
 export * from './repositories/group-repository.js';
