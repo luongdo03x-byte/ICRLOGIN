@@ -19,6 +19,13 @@ interface ProfileRouteServices {
     getState(id: string): string;
     getRuntime(id: string): { startedAt: string } | null;
   };
+  profileMutations: {
+    runWithStoppedProfiles<T>(
+      profileIds: readonly string[],
+      operation: () => Promise<T> | T,
+      message?: string
+    ): Promise<T>;
+  };
 }
 
 function parse<T>(schema: { parse(value: unknown): T }, value: unknown): T {
@@ -52,18 +59,24 @@ export function registerProfileRoutes(router: LocalApiRouter, services: ProfileR
   router.register('PATCH', '/api/v1/profiles/:id', async ({ params, body }) => {
     const { id } = parse(HttpIdParamsSchema, params);
     const input = parse(HttpProfileUpdateBodySchema, body);
-    if ((input as any).browserVersion !== undefined && services.browsers.getState(id) !== 'stopped') {
-      throw new AppError('INVALID_REQUEST', 'Stop the profile before changing browser version');
-    }
-    return httpOk(project(await services.profiles.update(id, input), services.browsers));
+    const requiresStopped = (input as any).browserVersion !== undefined || (input as any).groupId !== undefined;
+    const profile = requiresStopped
+      ? await services.profileMutations.runWithStoppedProfiles(
+          [id],
+          () => services.profiles.update(id, input),
+          'Stop the profile before changing browser version or group'
+        )
+      : await services.profiles.update(id, input);
+    return httpOk(project(profile, services.browsers));
   });
 
   router.register('DELETE', '/api/v1/profiles/:id', async ({ params }) => {
     const { id } = parse(HttpIdParamsSchema, params);
-    if (services.browsers.getState(id) !== 'stopped') {
-      throw new AppError('INVALID_REQUEST', 'Stop the profile before deleting it');
-    }
-    await services.profiles.softDelete(id);
+    await services.profileMutations.runWithStoppedProfiles(
+      [id],
+      () => services.profiles.softDelete(id),
+      'Stop the profile before deleting it'
+    );
     return httpOk(null);
   });
 }
