@@ -26,11 +26,11 @@ describe('database foundation', () => {
         for (const table of [
           'profiles', 'proxies', 'browser_versions', 'runtime_sessions', 'groups',
           'tags', 'profile_tags', 'extensions', 'profile_extensions', 'group_extensions',
-          'profile_templates', 'schema_migrations'
+          'profile_templates', 'backup_history', 'schema_migrations'
         ]) expect(tables).toContain(table);
 
         const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as Array<{ version: number }>;
-        expect(versions.map((row) => Number(row.version))).toEqual([1, 2, 3]);
+        expect(versions.map((row) => Number(row.version))).toEqual([1, 2, 3, 4]);
 
         db.prepare(`INSERT INTO profiles(
           id,name,description,group_id,browser_version,proxy_id,user_agent,language,timezone,
@@ -46,6 +46,10 @@ describe('database foundation', () => {
         db.prepare("INSERT INTO extensions(id,name,version,source_type,source_path,enabled,created_at,updated_at) VALUES ('e1','Ext','1.0','unpacked','internal/e1',1,'x','x')").run();
         expect(() => db.prepare("INSERT INTO profile_extensions(profile_id,extension_id) VALUES ('missing','e1')").run()).toThrow();
         expect(() => db.prepare("INSERT INTO group_extensions(group_id,extension_id) VALUES ('missing','e1')").run()).toThrow();
+
+        db.prepare("INSERT INTO backup_history(id,profile_id,mode,file_name,checksum,status,created_at) VALUES ('b1','p1','full','P1.icrbackup',?,'completed','x')").run('a'.repeat(64));
+        db.prepare("DELETE FROM profiles WHERE id='p1'").run();
+        expect((db.prepare("SELECT profile_id FROM backup_history WHERE id='b1'").get() as { profile_id: string | null }).profile_id).toBeNull();
       } finally {
         db.close();
       }
