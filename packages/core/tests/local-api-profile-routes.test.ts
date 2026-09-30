@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { AppError } from '@icrlogin/shared';
 import { LocalApiRouter } from '../src/api/local-api-router.js';
 import { registerProfileRoutes } from '../src/api/routes/profile-routes.js';
 
@@ -22,8 +23,14 @@ describe('profile local api routes', () => {
       async softDelete() { this.rows = []; }
     };
     const browsers = { getState: () => state, getRuntime: () => state === 'stopped' ? null : { startedAt: '2026-01-01T00:00:00Z' } };
+    const profileMutations = {
+      async runWithStoppedProfiles<T>(_ids: readonly string[], operation: () => Promise<T> | T): Promise<T> {
+        if (state !== 'stopped') throw new AppError('INVALID_REQUEST', 'Stop the profile before changing this setting');
+        return operation();
+      }
+    };
     const router = new LocalApiRouter();
-    registerProfileRoutes(router, { profiles, browsers } as any);
+    registerProfileRoutes(router, { profiles, browsers, profileMutations } as any);
 
     const list = await call(router, 'GET', '/api/v1/profiles');
     expect(list.data[0].runtimeState).toBe('starting');
