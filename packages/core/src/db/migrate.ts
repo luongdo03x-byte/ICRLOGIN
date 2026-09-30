@@ -9,9 +9,13 @@ interface Migration {
   up(db: Database): void;
 }
 
+export interface MigrationOptions {
+  beforeMigration?: () => Promise<void> | void;
+}
+
 const MIGRATIONS: readonly Migration[] = [migration001, migration002, migration003, migration004];
 
-export function runMigrations(db: Database): void {
+export async function runMigrations(db: Database, options: MigrationOptions = {}): Promise<void> {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY,
@@ -21,10 +25,11 @@ export function runMigrations(db: Database): void {
 
   const rows = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as Array<{ version: number }>;
   const applied = new Set(rows.map((row) => Number(row.version)));
+  const pending = MIGRATIONS.filter((migration) => !applied.has(migration.version));
+  if (pending.length === 0) return;
+  await options.beforeMigration?.();
 
-  for (const migration of MIGRATIONS) {
-    if (applied.has(migration.version)) continue;
-
+  for (const migration of pending) {
     db.exec('BEGIN IMMEDIATE');
     try {
       migration.up(db);
