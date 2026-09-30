@@ -53,8 +53,8 @@ export function RecoveryPage() {
 
     <section className="table-card">
       <div className="section-header"><div><h2>Startup health</h2><p className="muted">Integrity checks are non-destructive; corruption never triggers an automatic database reset.</p></div></div>
-      <table className="data-table"><thead><tr><th>Database</th><th>SQLite quick check</th><th>Recovered staging</th><th>Cleanup errors</th></tr></thead><tbody>
-        <tr><td>{recoveryStatus.data?.databaseHealthy ? 'Healthy' : recoveryStatus.isLoading ? 'Checking…' : 'Recovery required'}</td><td>{recoveryStatus.data?.quickCheck ?? '—'}</td><td>{recoveryStatus.data?.cleanedEntries ?? 0}</td><td>{recoveryStatus.data?.cleanupErrors ?? 0}</td></tr>
+      <table className="data-table"><thead><tr><th>Database</th><th>SQLite quick check</th><th>Recovered staging</th><th>Cleaned temp</th><th>Recovery errors</th></tr></thead><tbody>
+        <tr><td>{recoveryStatus.data?.databaseHealthy ? 'Healthy' : recoveryStatus.isLoading ? 'Checking…' : 'Recovery required'}</td><td>{recoveryStatus.data?.quickCheck ?? '—'}</td><td>{recoveryStatus.data?.recoveredEntries ?? 0}</td><td>{recoveryStatus.data?.cleanedEntries ?? 0}</td><td>{recoveryStatus.data?.cleanupErrors ?? 0}</td></tr>
       </tbody></table>
     </section>
 
