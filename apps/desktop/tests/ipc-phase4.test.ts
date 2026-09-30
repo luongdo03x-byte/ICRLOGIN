@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DESKTOP_CHANNELS } from '@icrlogin/shared';
+import { AppError, DESKTOP_CHANNELS } from '@icrlogin/shared';
 import { registerIpcHandlers, type IpcMainLike } from '../src/main/ipc.js';
 
 const A = '123e4567-e89b-42d3-a456-426614174000';
@@ -14,7 +14,7 @@ function harness(services: any) {
 }
 
 function baseServices() {
-  return {
+  const services: any = {
     profiles: { list: async () => [], get: async () => null, create: async () => ({}), update: async () => ({}), softDelete: async () => {}, restore: async () => ({}) },
     groups: { list: () => [], create: () => ({}), update: () => ({}), delete: () => {} },
     proxies: { list: async () => [], get: async () => null, create: async () => ({}), update: async () => ({}), delete: async () => {} },
@@ -28,6 +28,15 @@ function baseServices() {
     bulk: { startProfiles: async () => [], stopProfiles: async () => [], moveGroup: async () => [], assignProxy: async () => [], addTags: async () => [], removeTags: async () => [], softDelete: async () => [] },
     runtimeSessions: {}
   };
+  services.profileMutations = {
+    async runWithStoppedProfiles<T>(ids: readonly string[], operation: () => Promise<T> | T): Promise<T> {
+      if (ids.some((id) => services.browsers.getState(id) !== 'stopped')) {
+        throw new AppError('INVALID_REQUEST', 'Stop the profile before changing this setting');
+      }
+      return operation();
+    }
+  };
+  return services;
 }
 
 describe('phase 4 IPC', () => {
