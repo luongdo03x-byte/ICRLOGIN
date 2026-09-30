@@ -93,4 +93,24 @@ describe('BulkOperationService', () => {
     expect(events).toContain('remove:a:t1');
     expect(events).toContain('delete:a');
   });
+
+  it('rejects moving a running profile to another group because effective extensions can change', async () => {
+    const updates: string[] = [];
+    const service = new BulkOperationService({
+      browsers: {
+        async start(id) { return { profileId: id } as any; },
+        async stop() {},
+        getState(id) { return id === 'running' ? 'running' : 'stopped'; }
+      },
+      profiles: {
+        async update(id) { updates.push(id); },
+        async softDelete() {}
+      },
+      tags: { addProfileTags() {}, removeProfileTags() {} }
+    });
+
+    const result = await service.moveGroup(['running', 'stopped'], 'g1');
+    expect(result.map((item) => item.success)).toEqual([false, true]);
+    expect(updates).toEqual(['stopped']);
+  });
 });
