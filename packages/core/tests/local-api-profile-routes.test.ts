@@ -11,10 +11,10 @@ async function call(router: LocalApiRouter, method: string, path: string, body?:
 }
 
 describe('profile local api routes', () => {
-  it('projects runtime state and blocks browser mutation while not stopped', async () => {
+  it('projects runtime state and blocks browser or group mutation while not stopped', async () => {
     let state = 'starting';
     const profiles: any = {
-      rows: [{ id, name: 'A', browserVersion: '143', startupUrls: [] }],
+      rows: [{ id, name: 'A', browserVersion: '143', groupId: null, startupUrls: [] }],
       async list() { return this.rows; },
       async get(value: string) { return this.rows.find((row: any) => row.id === value) ?? null; },
       async create(input: any) { const profile = { id, ...input }; this.rows = [profile]; return profile; },
@@ -28,8 +28,10 @@ describe('profile local api routes', () => {
     const list = await call(router, 'GET', '/api/v1/profiles');
     expect(list.data[0].runtimeState).toBe('starting');
     await expect(call(router, 'PATCH', `/api/v1/profiles/${id}`, { browserVersion: '144' })).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+    await expect(call(router, 'PATCH', `/api/v1/profiles/${id}`, { groupId: '223e4567-e89b-42d3-a456-426614174000' })).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
     state = 'stopped';
     expect((await call(router, 'PATCH', `/api/v1/profiles/${id}`, { browserVersion: '144' })).data.browserVersion).toBe('144');
+    expect((await call(router, 'PATCH', `/api/v1/profiles/${id}`, { groupId: null })).data.groupId).toBeNull();
     await call(router, 'DELETE', `/api/v1/profiles/${id}`);
     expect(profiles.rows).toEqual([]);
   });
