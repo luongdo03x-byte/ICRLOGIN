@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
 import {
+  DatabaseBackupService,
   ensureAppPaths,
   HttpBrowserArtifactProvider,
   JsonFileBrowserArtifactProvider,
@@ -36,7 +37,8 @@ async function bootstrap(): Promise<void> {
   await app.whenReady();
 
   const db = openDatabase(join(paths.dataDir, 'icrlogin.db'));
-  runMigrations(db);
+  const databaseBackups = new DatabaseBackupService(db, paths);
+  await runMigrations(db, { beforeMigration: () => databaseBackups.create('migration').then(() => undefined) });
 
   const secretStore = new ElectronSafeStorageSecretStore(safeStorage);
   const manifestSettings = resolveBrowserManifestSettings(paths, process.env.ICRLOGIN_BROWSER_MANIFEST_URL);
