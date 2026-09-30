@@ -1,4 +1,4 @@
-import type { ApiEnvelope } from '@icrlogin/shared';
+import type { ApiEnvelope, BackupMode } from '@icrlogin/shared';
 
 export class IcrClientError extends Error {
   constructor(readonly code: string, message: string) {
@@ -28,6 +28,16 @@ export const icrClient = {
     start: (id: string) => call(window.icr.profiles.start(id)),
     stop: (id: string) => call(window.icr.profiles.stop(id)),
     clone: (sourceId: string, mode: Parameters<typeof window.icr.profiles.clone>[1], overrides?: Parameters<typeof window.icr.profiles.clone>[2]) => call(window.icr.profiles.clone(sourceId, mode, overrides))
+  },
+  recovery: {
+    backup: (id: string, mode: BackupMode) => call(window.icr.phase5Profiles.backup(id, mode)),
+    restoreBackup: () => call(window.icr.phase5Profiles.restoreBackup()),
+    exportConfig: (id: string) => call(window.icr.phase5Profiles.exportConfig(id)),
+    importConfig: (requestedName?: string) => call(window.icr.phase5Profiles.importConfig(requestedName)),
+    listTrash: () => call(window.icr.phase5Profiles.listTrash()),
+    restoreTrash: (id: string) => call(window.icr.phase5Profiles.restoreTrash(id)),
+    permanentDelete: (id: string) => call(window.icr.phase5Profiles.permanentDelete(id)),
+    listBackups: () => call(window.icr.backups.list())
   },
   groups: {
     list: () => call(window.icr.groups.list()),
