@@ -5,6 +5,7 @@ import type { AppPaths } from '../app-paths.js';
 
 export interface ProfileFilesHooks {
   afterStagingCreated?(stagingDir: string): Promise<void>;
+  beforeRestorePromotion?(stagingDir: string, profileId: string): Promise<void>;
 }
 
 export interface ManagedProfileFile {
@@ -67,6 +68,36 @@ export class ProfileFiles {
       await rm(stagingDir, { recursive: true, force: true });
       throw error;
     }
+  }
+
+  async createRestoreStaging(profileId: string): Promise<string> {
+    const stagingDir = childPath(this.paths.profilesDir, `.restore-${profileId}-${randomUUID()}`);
+    await mkdir(stagingDir, { recursive: false });
+    try {
+      await mkdir(resolve(stagingDir, 'user-data'), { recursive: false });
+      await mkdir(resolve(stagingDir, 'runtime'), { recursive: false });
+      return stagingDir;
+    } catch (error) {
+      await rm(stagingDir, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
+  async promoteRestore(stagingDir: string, profileId: string): Promise<void> {
+    const expectedPrefix = resolve(this.paths.profilesDir, '.restore-');
+    const resolvedStaging = resolve(stagingDir);
+    if (!resolvedStaging.startsWith(expectedPrefix)) throw new Error('Invalid restore staging path');
+    const finalDir = childPath(this.paths.profilesDir, profileId);
+    await writeFile(resolve(resolvedStaging, 'metadata.json'), `${JSON.stringify({ profileId }, null, 2)}\n`, 'utf8');
+    await this.hooks.beforeRestorePromotion?.(resolvedStaging, profileId);
+    await rename(resolvedStaging, finalDir);
+  }
+
+  async discardRestore(stagingDir: string): Promise<void> {
+    const expectedPrefix = resolve(this.paths.profilesDir, '.restore-');
+    const resolvedStaging = resolve(stagingDir);
+    if (!resolvedStaging.startsWith(expectedPrefix)) throw new Error('Invalid restore staging path');
+    await rm(resolvedStaging, { recursive: true, force: true });
   }
 
   async listUserDataFiles(profileId: string): Promise<ManagedProfileFile[]> {
