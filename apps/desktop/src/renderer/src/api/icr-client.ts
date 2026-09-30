@@ -39,6 +39,10 @@ export const icrClient = {
     permanentDelete: (id: string) => call(window.icr.phase5Profiles.permanentDelete(id)),
     listBackups: () => call(window.icr.backups.list())
   },
+  monitoring: {
+    snapshot: () => call(window.icr.monitoring.snapshot()),
+    recoveryStatus: () => call(window.icr.monitoring.recoveryStatus())
+  },
   groups: {
     list: () => call(window.icr.groups.list()),
     create: (input: Parameters<typeof window.icr.groups.create>[0]) => call(window.icr.groups.create(input)),
