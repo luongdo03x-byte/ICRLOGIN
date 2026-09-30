@@ -6,7 +6,7 @@ import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import * as yauzl from 'yauzl';
 import { AppError, BackupManifestSchema, type BackupManifest, type BackupManifestEntry } from '@icrlogin/shared';
-import { assertSafeArchivePath, computePayloadChecksum } from './archive-safety.js';
+import { assertSafeArchivePath, computePayloadChecksum, hashFile } from './archive-safety.js';
 
 const MAX_MANIFEST_BYTES = 1024 * 1024;
 function invalid(message: string): AppError { return new AppError('INVALID_REQUEST', message); }
@@ -128,7 +128,8 @@ export class BackupArchiveReader {
 
   async extract(archivePath: string, destination: string): Promise<void> {
     const validated = await this.inspect(archivePath);
-    const expected = new Set(validated.entries.map((entry) => entry.path));
+    const expected = new Map(validated.entries.map((entry) => [entry.path, entry]));
+    const extracted = new Set<string>();
     const stagingRoot = resolve(destination);
     const zip = await openZip(archivePath);
 
@@ -141,20 +142,31 @@ export class BackupArchiveReader {
         reject(error instanceof AppError ? error : invalid('Unable to extract backup archive'));
       };
       zip.on('error', fail);
-      zip.on('end', () => { if (!settled) { settled = true; resolvePromise(); } });
+      zip.on('end', () => {
+        if (settled) return;
+        if (extracted.size !== expected.size) { fail(invalid('Backup payload entries do not match manifest')); return; }
+        settled = true;
+        resolvePromise();
+      });
       zip.on('entry', (entry) => {
         void (async () => {
           if (entryIsSymlink(entry)) throw invalid('Backup archive symlinks are not allowed');
           const path = assertSafeArchivePath(entry.fileName);
           if (path === 'manifest.json') { zip.readEntry(); return; }
-          if (!expected.has(path)) throw invalid('Backup payload entries do not match manifest');
+          const wanted = expected.get(path);
+          if (!wanted || extracted.has(path)) throw invalid('Backup payload entries do not match manifest');
           const target = resolve(stagingRoot, path);
           if (target !== stagingRoot && !target.startsWith(`${stagingRoot}/`) && !target.startsWith(`${stagingRoot}\\`)) throw invalid('Backup path escapes restore staging');
           await mkdir(dirname(target), { recursive: true });
           const temp = `${target}.restore-${randomUUID()}`;
           try {
             await pipeline(await openEntryStream(zip, entry), createWriteStream(temp, { flags: 'wx' }));
+            const digest = await hashFile(temp);
+            if (digest.byteLength !== wanted.byteLength || digest.sha256.toLowerCase() !== wanted.sha256.toLowerCase()) {
+              throw invalid('Backup payload checksum mismatch');
+            }
             await rename(temp, target);
+            extracted.add(path);
           } catch (error) {
             await rm(temp, { force: true });
             throw error;
