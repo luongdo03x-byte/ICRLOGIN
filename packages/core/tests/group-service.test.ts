@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { AppError } from '@icrlogin/shared';
 import { openDatabase } from '../src/db/database.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { GroupRepository } from '../src/repositories/group-repository.js';
@@ -74,7 +75,7 @@ describe('GroupService', () => {
     expect(() => db.prepare('UPDATE profiles SET group_id = ? WHERE id = ?').run('missing', 'p2')).toThrow();
   }));
 
-  it('moves profiles to Ungrouped before deleting the group', async () => withDb((db) => {
+  it('moves profiles to Ungrouped before deleting the group', async () => withDb(async (db) => {
     const service = new GroupService(new GroupRepository(db), {
       idFactory: () => 'g1',
       now: () => '2026-01-01T00:00:00.000Z'
@@ -82,10 +83,31 @@ describe('GroupService', () => {
 
     service.create({ name: 'Work' });
     insertProfile(db, 'p1', 'g1');
-    service.delete('g1');
+    await service.delete('g1');
 
     const row = db.prepare('SELECT group_id FROM profiles WHERE id = ?').get('p1') as { group_id: string | null };
     expect(row.group_id).toBe(null);
     expect(service.list()).toHaveLength(0);
+  }));
+
+  it('does not delete or ungroup when a member profile cannot be locked as stopped', async () => withDb(async (db) => {
+    const seenIds: string[][] = [];
+    const service = new GroupService(new GroupRepository(db), {
+      idFactory: () => 'g1',
+      now: () => '2026-01-01T00:00:00.000Z',
+      profileMutations: {
+        async runWithStoppedProfiles(ids) {
+          seenIds.push([...ids]);
+          throw new AppError('INVALID_REQUEST', 'Stop affected profiles before deleting group');
+        }
+      } as any
+    });
+
+    service.create({ name: 'Work' });
+    insertProfile(db, 'p1', 'g1');
+    await expect(service.delete('g1')).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+    expect(seenIds).toEqual([['p1']]);
+    expect((db.prepare('SELECT group_id FROM profiles WHERE id = ?').get('p1') as { group_id: string | null }).group_id).toBe('g1');
+    expect(service.list()).toHaveLength(1);
   }));
 });
