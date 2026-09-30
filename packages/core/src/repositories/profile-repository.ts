@@ -103,6 +103,10 @@ export class ProfileRepository {
     return (this.db.prepare(sql).all() as ProfileRow[]).map(mapRow);
   }
 
+  listTrash(): Profile[] {
+    return (this.db.prepare('SELECT * FROM profiles WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, name COLLATE NOCASE').all() as ProfileRow[]).map(mapRow);
+  }
+
   getById(id: string, options: { includeDeleted?: boolean } = {}): Profile | null {
     const sql = options.includeDeleted
       ? 'SELECT * FROM profiles WHERE id = ?'
