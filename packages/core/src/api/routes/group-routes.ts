@@ -12,7 +12,7 @@ interface GroupRouteServices {
     list(): any[];
     create(input: any): any;
     update(id: string, input: any): any;
-    delete(id: string): void;
+    delete(id: string): Promise<void> | void;
   };
 }
 
@@ -29,9 +29,9 @@ export function registerGroupRoutes(router: LocalApiRouter, services: GroupRoute
     const { id } = parse(HttpIdParamsSchema, params);
     return httpOk(services.groups.update(id, parse(HttpGroupUpdateBodySchema, body)));
   });
-  router.register('DELETE', '/api/v1/groups/:id', ({ params }) => {
+  router.register('DELETE', '/api/v1/groups/:id', async ({ params }) => {
     const { id } = parse(HttpIdParamsSchema, params);
-    services.groups.delete(id);
+    await services.groups.delete(id);
     return httpOk(null);
   });
 }
