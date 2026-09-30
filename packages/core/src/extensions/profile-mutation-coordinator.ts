@@ -8,13 +8,17 @@ export class ProfileMutationCoordinator {
     private readonly registry: ProcessRegistry
   ) {}
 
-  async runWithStoppedProfiles<T>(profileIds: readonly string[], operation: () => Promise<T> | T): Promise<T> {
+  async runWithStoppedProfiles<T>(
+    profileIds: readonly string[],
+    operation: () => Promise<T> | T,
+    message = 'Stop affected profiles before changing this setting'
+  ): Promise<T> {
     const ids = [...new Set(profileIds)].sort();
     const run = async (index: number): Promise<T> => {
       if (index >= ids.length) {
         for (const id of ids) {
           if (this.registry.get(id)) {
-            throw new AppError('INVALID_REQUEST', 'Stop affected profiles before changing extensions');
+            throw new AppError('INVALID_REQUEST', message);
           }
         }
         return operation();
