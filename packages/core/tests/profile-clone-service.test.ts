@@ -14,7 +14,7 @@ const source: Profile = {
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', lastUsedAt: null, deletedAt: null
 };
 
-async function setup(hooks: ConstructorParameters<typeof ProfileFiles>[1] = {}) {
+async function setup(hooks: ConstructorParameters<typeof ProfileFiles>[1] = {}, extraOptions: Record<string, unknown> = {}) {
   const root = await createTempRoot();
   const paths = createAppPaths(root);
   await ensureAppPaths(paths);
@@ -40,7 +40,8 @@ async function setup(hooks: ConstructorParameters<typeof ProfileFiles>[1] = {}) 
   let sequence = 0;
   const service = new ProfileCloneService(repository, new ProfileFiles(paths, hooks), relations, states, {
     idFactory: () => `clone${++sequence}`,
-    now: () => '2026-02-01T00:00:00.000Z'
+    now: () => '2026-02-01T00:00:00.000Z',
+    ...extraOptions
   });
   return { root, paths, rows, relationState, states, service };
 }
@@ -64,6 +65,26 @@ describe('ProfileCloneService', () => {
       expect(await readFile(join(fixture.paths.profilesDir, profile.id, 'user-data', 'Cookies'), 'utf8')).toBe('session');
       fixture.states.getState = () => 'running';
       await expect(fixture.service.cloneFull(source.id)).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+    } finally { await removeTempRoot(fixture.root); }
+  });
+
+  it('checks stopped state while holding the same profile operation lock', async () => {
+    let state = 'stopped';
+    let lockCalls = 0;
+    const fixture = await setup({}, {
+      operationLock: {
+        async runExclusive<T>(_profileId: string, operation: () => Promise<T>): Promise<T> {
+          lockCalls += 1;
+          state = 'running';
+          return operation();
+        }
+      }
+    });
+    fixture.states.getState = () => state;
+    try {
+      await expect(fixture.service.cloneFull(source.id)).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+      expect(lockCalls).toBe(1);
+      expect(fixture.rows.has('clone1')).toBe(false);
     } finally { await removeTempRoot(fixture.root); }
   });
 
