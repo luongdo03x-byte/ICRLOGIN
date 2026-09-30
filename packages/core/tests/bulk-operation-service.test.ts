@@ -6,6 +6,17 @@ function deferred(ms = 5): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function profileMutations(getState: (id: string) => string = () => 'stopped') {
+  return {
+    async runWithStoppedProfiles<T>(ids: readonly string[], operation: () => Promise<T> | T): Promise<T> {
+      if (ids.some((id) => getState(id) !== 'stopped')) {
+        throw new AppError('INVALID_REQUEST', 'Stop the profile before changing this setting');
+      }
+      return operation();
+    }
+  };
+}
+
 describe('BulkOperationService', () => {
   it('starts with default max concurrency 3, de-duplicates IDs, and preserves first-seen order', async () => {
     let active = 0;
@@ -25,7 +36,8 @@ describe('BulkOperationService', () => {
         getState() { return 'stopped'; }
       },
       profiles: { async update() {}, async softDelete() {} },
-      tags: { addProfileTags() {}, removeProfileTags() {} }
+      tags: { addProfileTags() {}, removeProfileTags() {} },
+      profileMutations: profileMutations()
     });
 
     const results = await service.startProfiles(['a', 'b', 'a', 'c', 'd']);
@@ -51,7 +63,8 @@ describe('BulkOperationService', () => {
         getState() { return 'stopped'; }
       },
       profiles: { async update() {}, async softDelete() {} },
-      tags: { addProfileTags() {}, removeProfileTags() {} }
+      tags: { addProfileTags() {}, removeProfileTags() {} },
+      profileMutations: profileMutations()
     });
 
     const first = await service.startProfiles(['a', 'b', 'c']);
@@ -78,7 +91,8 @@ describe('BulkOperationService', () => {
       tags: {
         addProfileTags(id, tagIds) { events.push(`add:${id}:${tagIds.join(',')}`); },
         removeProfileTags(id, tagIds) { events.push(`remove:${id}:${tagIds.join(',')}`); }
-      }
+      },
+      profileMutations: profileMutations()
     });
 
     expect((await service.stopProfiles(['ok', 'bad'])).map((item) => item.success)).toEqual([true, false]);
@@ -96,17 +110,19 @@ describe('BulkOperationService', () => {
 
   it('rejects moving a running profile to another group because effective extensions can change', async () => {
     const updates: string[] = [];
+    const getState = (id: string) => id === 'running' ? 'running' : 'stopped';
     const service = new BulkOperationService({
       browsers: {
         async start(id) { return { profileId: id } as any; },
         async stop() {},
-        getState(id) { return id === 'running' ? 'running' : 'stopped'; }
+        getState
       },
       profiles: {
         async update(id) { updates.push(id); },
         async softDelete() {}
       },
-      tags: { addProfileTags() {}, removeProfileTags() {} }
+      tags: { addProfileTags() {}, removeProfileTags() {} },
+      profileMutations: profileMutations(getState)
     });
 
     const result = await service.moveGroup(['running', 'stopped'], 'g1');
