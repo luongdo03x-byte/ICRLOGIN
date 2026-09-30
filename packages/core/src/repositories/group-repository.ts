@@ -61,6 +61,10 @@ export class GroupRepository {
     return result.changes === 0 ? null : this.getById(id);
   }
 
+  profileIds(id: string): string[] {
+    return (this.db.prepare('SELECT id FROM profiles WHERE group_id = ? AND deleted_at IS NULL ORDER BY id').all(id) as Array<{ id: string }>).map((row) => row.id);
+  }
+
   deleteAndUngroupProfiles(id: string): void {
     this.db.exec('BEGIN IMMEDIATE');
     try {
