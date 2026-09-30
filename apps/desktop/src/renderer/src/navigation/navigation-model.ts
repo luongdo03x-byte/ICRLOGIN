@@ -1,5 +1,5 @@
 export type AppSection = 'profiles' | 'groups' | 'proxy' | 'browsers' | 'extensions' | 'settings';
-export type SectionView = 'profiles' | 'groups' | 'proxy' | 'browsers' | 'placeholder:extensions' | 'placeholder:settings';
+export type SectionView = 'profiles' | 'groups' | 'proxy' | 'browsers' | 'extensions' | 'placeholder:settings';
 
 export function getSectionView(section: AppSection): SectionView {
   switch (section) {
@@ -7,7 +7,7 @@ export function getSectionView(section: AppSection): SectionView {
     case 'groups': return 'groups';
     case 'proxy': return 'proxy';
     case 'browsers': return 'browsers';
-    case 'extensions': return 'placeholder:extensions';
+    case 'extensions': return 'extensions';
     case 'settings': return 'placeholder:settings';
   }
 }
