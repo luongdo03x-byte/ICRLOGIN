@@ -7,6 +7,7 @@ import { CreateTagInputSchema } from '../src/tag.js';
 import { ExtensionSourceTypeSchema } from '../src/extension.js';
 import { CloneProfileInputSchema, ProfileTemplateConfigSchema } from '../src/profile-template.js';
 import { BulkStartInputSchema } from '../src/bulk.js';
+import { BACKUP_FORMAT_VERSION, BackupManifestSchema, ProfileConfigExportSchema } from '../src/backup.js';
 import {
   HttpIdParamsSchema,
   HttpPortSchema,
@@ -77,5 +78,33 @@ describe('shared contracts', () => {
     expect(CloneProfileInputSchema.parse({ sourceId: id, mode: 'config' }).mode).toBe('config');
     expect(BulkStartInputSchema.parse({ ids: [id] }).concurrency).toBe(3);
     expect(() => BulkStartInputSchema.parse({ ids: [id], concurrency: 6 })).toThrow();
+  });
+
+  it('pins backup format v1 and keeps archive/export contracts strict and secret-free', () => {
+    const profileId = '123e4567-e89b-42d3-a456-426614174000';
+    const manifest = {
+      formatVersion: BACKUP_FORMAT_VERSION,
+      mode: 'full',
+      createdAt: '2026-09-30T00:00:00.000Z',
+      appVersion: '0.1.0',
+      profileId,
+      browserVersion: '144.0.0',
+      payloadChecksum: 'a'.repeat(64),
+      entries: [{ path: 'profile.json', sha256: 'b'.repeat(64), byteLength: 12 }]
+    };
+    expect(BackupManifestSchema.parse(manifest).formatVersion).toBe(1);
+    expect(() => BackupManifestSchema.parse({ ...manifest, formatVersion: 2 })).toThrow();
+
+    const cleanExport = {
+      formatVersion: 1,
+      exportedAt: '2026-09-30T00:00:00.000Z',
+      profile: { name: 'QA', browserVersion: '144.0.0', groupId: null, proxyId: null, startupUrls: [] },
+      tagIds: [],
+      extensionIds: []
+    };
+    expect(ProfileConfigExportSchema.parse(cleanExport).profile.name).toBe('QA');
+    for (const key of ['proxyPassword', 'apiToken', 'userDataDir', 'cookies', 'executablePath']) {
+      expect(() => ProfileConfigExportSchema.parse({ ...cleanExport, [key]: 'secret' })).toThrow();
+    }
   });
 });
