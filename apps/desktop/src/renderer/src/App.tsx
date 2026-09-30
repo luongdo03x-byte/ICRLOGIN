@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { DesktopProfileListItem } from '@icrlogin/shared';
 import { AppShell } from './components/AppShell.js';
-import { PlaceholderPage } from './components/PlaceholderPage.js';
 import { icrClient } from './api/icr-client.js';
 import { ProfilesPage } from './pages/profiles/ProfilesPage.js';
 import { ProfileWizard } from './pages/profiles/ProfileWizard.js';
@@ -11,6 +10,7 @@ import { ProxyPage } from './pages/proxy/ProxyPage.js';
 import { BrowserManagerPage } from './pages/browsers/BrowserManagerPage.js';
 import { ExtensionsPage } from './pages/extensions/ExtensionsPage.js';
 import { TemplatesPage } from './pages/templates/TemplatesPage.js';
+import { RecoveryPage } from './pages/recovery/RecoveryPage.js';
 import { getSectionView } from './navigation/navigation-model.js';
 import { useUiStore } from './state/ui-store.js';
 
@@ -30,7 +30,7 @@ export function App() {
   else if (view === 'proxy') content = <ProxyPage />;
   else if (view === 'browsers') content = <BrowserManagerPage />;
   else if (view === 'extensions') content = <ExtensionsPage />;
-  else content = <PlaceholderPage title="Settings" glyph="S" />;
+  else content = <RecoveryPage />;
 
   return <AppShell coreStatus={status}>{content}<ProfileWizard open={wizardProfile !== undefined} profile={wizardProfile ?? null} onClose={() => setWizardProfile(undefined)} /></AppShell>;
 }
