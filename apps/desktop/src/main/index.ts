@@ -9,6 +9,7 @@ import {
   openDatabase,
   runMigrations,
   RuntimeReconciler,
+  StartupRecoveryService,
   waitForCdp
 } from '@icrlogin/core';
 import { AppError } from '@icrlogin/shared';
@@ -24,8 +25,10 @@ import {
 } from './config.js';
 import { registerIpcHandlers } from './ipc.js';
 import { registerPhase5IpcHandlers } from './ipc-phase5.js';
+import { registerPhase6IpcHandlers } from './ipc-phase6.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
+import { WindowsProcessMetricsReader } from './windows-process-metrics.js';
 
 async function bootstrap(): Promise<void> {
   const localBase = process.env.LOCALAPPDATA ?? app.getPath('appData');
@@ -38,8 +41,11 @@ async function bootstrap(): Promise<void> {
   await app.whenReady();
 
   const db = openDatabase(join(paths.dataDir, 'icrlogin.db'));
-  const databaseBackups = new DatabaseBackupService(db, paths);
-  await runMigrations(db, { beforeMigration: () => databaseBackups.create('migration').then(() => undefined) });
+  const startupRecovery = await new StartupRecoveryService({ db, paths }).run();
+  if (startupRecovery.databaseHealthy) {
+    const databaseBackups = new DatabaseBackupService(db, paths);
+    await runMigrations(db, { beforeMigration: () => databaseBackups.create('migration').then(() => undefined) });
+  }
 
   const secretStore = new ElectronSafeStorageSecretStore(safeStorage);
   const manifestSettings = resolveBrowserManifestSettings(paths, process.env.ICRLOGIN_BROWSER_MANIFEST_URL);
@@ -47,15 +53,25 @@ async function bootstrap(): Promise<void> {
     ? new HttpBrowserArtifactProvider(manifestSettings.manifestUrl, manifestSettings.cachePath)
     : new JsonFileBrowserArtifactProvider(manifestSettings.cachePath);
 
-  const services = createAppServices({ db, paths, secretStore, browserArtifactProvider });
-  const reconciler = new RuntimeReconciler({
-    runtimeSessions: services.runtimeSessions,
-    registry: services.registry,
-    processInspector: new WindowsProcessInspector(),
-    cdpProbe: waitForCdp,
-    paths
+  const services = createAppServices({
+    db,
+    paths,
+    secretStore,
+    browserArtifactProvider,
+    processMetricsReader: new WindowsProcessMetricsReader()
   });
-  await reconciler.reconcile();
+
+  if (startupRecovery.databaseHealthy) {
+    const reconciler = new RuntimeReconciler({
+      runtimeSessions: services.runtimeSessions,
+      registry: services.registry,
+      processInspector: new WindowsProcessInspector(),
+      cdpProbe: waitForCdp,
+      paths
+    });
+    await reconciler.reconcile();
+    services.monitoring.start();
+  }
 
   registerIpcHandlers(ipcMain, services, { dataRootLabel: maskDataRoot(dataRoot) });
   registerPhase5IpcHandlers(ipcMain, services, {
@@ -73,22 +89,25 @@ async function bootstrap(): Promise<void> {
       return result.canceled ? null : result.filePath ?? null;
     }
   });
+  registerPhase6IpcHandlers(ipcMain, services, startupRecovery);
 
   let apiServer: LocalApiServer | null = null;
-  try {
-    const apiSettings = resolveLocalApiSettings(process.env, paths);
-    const tokenStore = new EncryptedApiTokenStore(apiSettings.tokenFile, secretStore);
-    const bearerToken = await resolveApiToken(process.env, tokenStore);
-    apiServer = new LocalApiServer({
-      port: apiSettings.port,
-      services,
-      ...(bearerToken ? { bearerToken } : {})
-    });
-    await apiServer.start();
-  } catch (error) {
-    const code = error instanceof AppError ? error.code : 'INTERNAL_ERROR';
-    console.error(`[ICRLogin] Local API unavailable (${code})`);
-    apiServer = null;
+  if (startupRecovery.databaseHealthy) {
+    try {
+      const apiSettings = resolveLocalApiSettings(process.env, paths);
+      const tokenStore = new EncryptedApiTokenStore(apiSettings.tokenFile, secretStore);
+      const bearerToken = await resolveApiToken(process.env, tokenStore);
+      apiServer = new LocalApiServer({
+        port: apiSettings.port,
+        services,
+        ...(bearerToken ? { bearerToken } : {})
+      });
+      await apiServer.start();
+    } catch (error) {
+      const code = error instanceof AppError ? error.code : 'INTERNAL_ERROR';
+      console.error(`[ICRLogin] Local API unavailable (${code})`);
+      apiServer = null;
+    }
   }
 
   const mainDir = moduleDirectory(import.meta.url);
@@ -103,6 +122,7 @@ async function bootstrap(): Promise<void> {
     event.preventDefault();
     shutdownStarted = true;
     void (async () => {
+      services.monitoring.stop();
       try {
         await apiServer?.stop();
       } catch {
