@@ -22,10 +22,19 @@ interface BulkTags {
   removeProfileTags(profileId: string, tagIds: string[]): void | Promise<void>;
 }
 
+interface BulkProfileMutations {
+  runWithStoppedProfiles<T>(
+    profileIds: readonly string[],
+    operation: () => Promise<T> | T,
+    message?: string
+  ): Promise<T>;
+}
+
 export interface BulkOperationDependencies {
   browsers: BulkBrowsers;
   profiles: BulkProfiles;
   tags: BulkTags;
+  profileMutations: BulkProfileMutations;
 }
 
 function uniqueIds(ids: readonly string[]): string[] {
@@ -56,7 +65,11 @@ export class BulkOperationService {
   }
 
   async moveGroup(ids: readonly string[], groupId: string | null): Promise<BulkItemResult<null>[]> {
-    return this.runMetadata(ids, (id) => this.deps.profiles.update(id, { groupId }));
+    return this.runMetadata(ids, (id) => this.deps.profileMutations.runWithStoppedProfiles(
+      [id],
+      () => this.deps.profiles.update(id, { groupId }),
+      'Stop the profile before changing group'
+    ));
   }
 
   async assignProxy(ids: readonly string[], proxyId: string | null): Promise<BulkItemResult<null>[]> {
@@ -74,12 +87,11 @@ export class BulkOperationService {
   }
 
   async softDelete(ids: readonly string[]): Promise<BulkItemResult<null>[]> {
-    return this.runMetadata(ids, async (id) => {
-      if (this.deps.browsers.getState(id) !== 'stopped') {
-        throw new AppError('INVALID_REQUEST', 'Stop the profile before deleting it');
-      }
-      await this.deps.profiles.softDelete(id);
-    });
+    return this.runMetadata(ids, (id) => this.deps.profileMutations.runWithStoppedProfiles(
+      [id],
+      () => this.deps.profiles.softDelete(id),
+      'Stop the profile before deleting it'
+    ));
   }
 
   private async runMetadata(ids: readonly string[], operation: (id: string) => void | Promise<unknown>): Promise<BulkItemResult<null>[]> {
