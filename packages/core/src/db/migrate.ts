@@ -27,7 +27,7 @@ export async function runMigrations(db: Database, options: MigrationOptions = {}
   const applied = new Set(rows.map((row) => Number(row.version)));
   const pending = MIGRATIONS.filter((migration) => !applied.has(migration.version));
   if (pending.length === 0) return;
-  await options.beforeMigration?.();
+  if (options.beforeMigration) await options.beforeMigration();
 
   for (const migration of pending) {
     db.exec('BEGIN IMMEDIATE');
