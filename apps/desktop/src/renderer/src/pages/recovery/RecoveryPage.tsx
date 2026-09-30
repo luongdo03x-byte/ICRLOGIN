@@ -2,17 +2,26 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { icrClient } from '../../api/icr-client.js';
 
+function formatBytes(value: number | null): string {
+  if (value === null) return 'Unavailable';
+  const mib = value / (1024 * 1024);
+  return `${mib.toFixed(mib >= 100 ? 0 : 1)} MiB`;
+}
+
 export function RecoveryPage() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string>('');
   const profiles = useQuery({ queryKey: ['profiles'], queryFn: icrClient.profiles.list });
   const backups = useQuery({ queryKey: ['backups'], queryFn: icrClient.recovery.listBackups });
   const trash = useQuery({ queryKey: ['trash'], queryFn: icrClient.recovery.listTrash });
+  const recoveryStatus = useQuery({ queryKey: ['startup-recovery'], queryFn: icrClient.monitoring.recoveryStatus, staleTime: Infinity });
+  const metrics = useQuery({ queryKey: ['process-metrics'], queryFn: icrClient.monitoring.snapshot, refetchInterval: 5000 });
 
   const refresh = async () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ['profiles'] }),
     queryClient.invalidateQueries({ queryKey: ['backups'] }),
-    queryClient.invalidateQueries({ queryKey: ['trash'] })
+    queryClient.invalidateQueries({ queryKey: ['trash'] }),
+    queryClient.invalidateQueries({ queryKey: ['process-metrics'] })
   ]);
   const operation = useMutation({
     mutationFn: async (fn: () => Promise<unknown>) => fn(),
@@ -31,15 +40,31 @@ export function RecoveryPage() {
     return result;
   });
 
+  const profileNames = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.name]));
   return <div className="page-frame">
     <header className="page-header">
-      <div><p className="eyebrow">DATA & RECOVERY</p><h1>Backup & Recovery</h1><p className="page-subtitle">Profile archives, config transfer, restore history and Trash.</p></div>
+      <div><p className="eyebrow">DATA & RECOVERY</p><h1>Backup & Recovery</h1><p className="page-subtitle">Profile archives, config transfer, startup health, monitoring and Trash.</p></div>
       <div className="page-header-actions">
         <button className="btn" type="button" disabled={operation.isPending} onClick={importConfig}>Import config</button>
         <button className="btn primary" type="button" disabled={operation.isPending} onClick={restoreBackup}>Restore backup</button>
       </div>
     </header>
     {message && <div className="info-panel">{message}</div>}
+
+    <section className="table-card">
+      <div className="section-header"><div><h2>Startup health</h2><p className="muted">Integrity checks are non-destructive; corruption never triggers an automatic database reset.</p></div></div>
+      <table className="data-table"><thead><tr><th>Database</th><th>SQLite quick check</th><th>Recovered staging</th><th>Cleanup errors</th></tr></thead><tbody>
+        <tr><td>{recoveryStatus.data?.databaseHealthy ? 'Healthy' : recoveryStatus.isLoading ? 'Checking…' : 'Recovery required'}</td><td>{recoveryStatus.data?.quickCheck ?? '—'}</td><td>{recoveryStatus.data?.cleanedEntries ?? 0}</td><td>{recoveryStatus.data?.cleanupErrors ?? 0}</td></tr>
+      </tbody></table>
+    </section>
+
+    <section className="table-card">
+      <div className="section-header"><div><h2>Running browser resources</h2><p className="muted">Managed Chromium CPU and RAM are sampled every 5 seconds.</p></div></div>
+      <table className="data-table"><thead><tr><th>Profile</th><th>PID</th><th>CPU</th><th>RAM</th><th>Status</th></tr></thead><tbody>
+        {(metrics.data ?? []).map((item) => <tr key={`${item.profileId}-${item.pid}`}><td>{profileNames.get(item.profileId) ?? item.profileId}</td><td>{item.pid}</td><td>{item.cpuPercent === null ? 'Unavailable' : `${item.cpuPercent.toFixed(1)}%`}</td><td>{formatBytes(item.workingSetBytes)}</td><td>{item.status}</td></tr>)}
+        {!metrics.isLoading && (metrics.data ?? []).length === 0 && <tr><td colSpan={5}><div className="table-empty">No managed Chromium process is running.</div></td></tr>}
+      </tbody></table>
+    </section>
 
     <section className="table-card">
       <div className="section-header"><div><h2>Profiles</h2><p className="muted">Metadata backup works while stopped or running; full backup requires stopped.</p></div></div>
