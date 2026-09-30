@@ -2,7 +2,7 @@
 
 ICRLogin is a Windows-first, local-first Chromium profile manager and automation foundation.
 
-Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow.
+Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow. Phase 6 adds redacted structured logging primitives, managed Chromium CPU/RAM monitoring, SQLite startup integrity checks and database-aware crash staging recovery.
 
 ## Local automation API
 
@@ -16,11 +16,13 @@ The listener is intentionally localhost-only. Start/restart endpoints return san
 
 See [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md) for endpoints, bearer usage, and CDP examples.
 
-## Backup and recovery
+## Backup, monitoring and recovery
 
 Full `.icrbackup` archives are checksum verified and can include Chromium user-data only while a profile is stopped. `.icrprofile.json` is a config-only transfer format and never contains cookies, proxy secrets, runtime state or internal paths. Soft-deleted profiles live in Trash until restored or explicitly permanently deleted. SQLite safety backups are created before pending migrations and restore mutation.
 
-See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md) for archive format, restore warning semantics, Trash behavior and the security boundary.
+Startup recovery runs a non-destructive SQLite integrity check before migrations. Healthy databases can reconcile interrupted profile/Trash staging; unhealthy databases preserve those staging directories instead of guessing. Managed Chromium CPU/RAM is sampled without exposing generic process control or command lines to the renderer.
+
+See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md) and [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md).
 
 ## Development
 
@@ -36,6 +38,6 @@ npm run build -w @icrlogin/desktop
 npm run dev -w @icrlogin/desktop
 ```
 
-Developer details are documented in [`docs/development/phase-1-core.md`](docs/development/phase-1-core.md), [`docs/development/phase-2-desktop-ui.md`](docs/development/phase-2-desktop-ui.md), [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md), [`docs/development/phase-4-profile-ops-extensions.md`](docs/development/phase-4-profile-ops-extensions.md), and [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md).
+Developer details are documented in [`docs/development/phase-1-core.md`](docs/development/phase-1-core.md), [`docs/development/phase-2-desktop-ui.md`](docs/development/phase-2-desktop-ui.md), [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md), [`docs/development/phase-4-profile-ops-extensions.md`](docs/development/phase-4-profile-ops-extensions.md), [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), and [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md).
 
 The approved design and implementation plans are under [`docs/superpowers/`](docs/superpowers/).
