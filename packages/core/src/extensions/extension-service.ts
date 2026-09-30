@@ -14,7 +14,19 @@ export class ExtensionService {
   async importUnpacked(sourceDir:string):Promise<ExtensionRecord>{return this.persistImport(await this.importer.importUnpacked(sourceDir));}
   async importCrx(crxPath:string):Promise<ExtensionRecord>{return this.persistImport(await this.importer.importCrx(crxPath));}
   async setEnabled(id:string,enabled:boolean):Promise<ExtensionRecord>{this.requireExtension(id);return this.mutations.runWithStoppedProfiles(this.repository.affectedProfileIds(id),async()=>{const updated=this.repository.setEnabled(id,enabled,this.now());if(!updated)throw invalidExtension('Extension not found');return publicRecord(updated);});}
-  async delete(id:string):Promise<void>{const extension=this.requireExtension(id);await this.mutations.runWithStoppedProfiles(this.repository.affectedProfileIds(id),async()=>{await this.importer.removeInternal(extension.sourcePath);this.repository.delete(id);});}
+  async delete(id:string):Promise<void>{
+    const extension=this.requireExtension(id);
+    await this.mutations.runWithStoppedProfiles(this.repository.affectedProfileIds(id),async()=>{
+      const staged=await this.importer.stageInternalRemoval(extension.sourcePath);
+      try{
+        this.repository.delete(id);
+      }catch(error){
+        await staged.rollback();
+        throw error;
+      }
+      await staged.commit();
+    });
+  }
   async assignToProfile(extensionId:string,profileId:string):Promise<void>{this.requireExtension(extensionId);if(!this.repository.profileExists(profileId))throw invalidExtension('Profile not found');await this.mutations.runWithStoppedProfiles([profileId],async()=>{this.repository.assignProfile(profileId,extensionId);});}
   async removeFromProfile(extensionId:string,profileId:string):Promise<void>{this.requireExtension(extensionId);if(!this.repository.profileExists(profileId))throw invalidExtension('Profile not found');await this.mutations.runWithStoppedProfiles([profileId],async()=>{this.repository.removeProfile(profileId,extensionId);});}
   async assignToGroup(extensionId:string,groupId:string):Promise<void>{this.requireExtension(extensionId);if(!this.repository.groupExists(groupId))throw invalidExtension('Group not found');const profileIds=this.repository.profileIdsForGroup(groupId);await this.mutations.runWithStoppedProfiles(profileIds,async()=>{this.repository.assignGroup(groupId,extensionId);});}
