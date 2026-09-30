@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
 import {
   DatabaseBackupService,
   ensureAppPaths,
@@ -23,6 +23,7 @@ import {
   resolveLocalApiSettings
 } from './config.js';
 import { registerIpcHandlers } from './ipc.js';
+import { registerPhase5IpcHandlers } from './ipc-phase5.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
 
@@ -57,6 +58,21 @@ async function bootstrap(): Promise<void> {
   await reconciler.reconcile();
 
   registerIpcHandlers(ipcMain, services, { dataRootLabel: maskDataRoot(dataRoot) });
+  registerPhase5IpcHandlers(ipcMain, services, {
+    async selectRestoreBackup() {
+      const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'ICRLogin Backup', extensions: ['icrbackup'] }] });
+      return result.canceled ? null : result.filePaths[0] ?? null;
+    },
+    async selectConfigImport() {
+      const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'ICRLogin Profile', extensions: ['json'] }] });
+      return result.canceled ? null : result.filePaths[0] ?? null;
+    },
+    async selectConfigExport(profileName) {
+      const safeName = profileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim() || 'profile';
+      const result = await dialog.showSaveDialog({ defaultPath: `${safeName}.icrprofile.json`, filters: [{ name: 'ICRLogin Profile', extensions: ['json'] }] });
+      return result.canceled ? null : result.filePath ?? null;
+    }
+  });
 
   let apiServer: LocalApiServer | null = null;
   try {
