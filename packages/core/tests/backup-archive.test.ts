@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { BACKUP_FORMAT_VERSION } from '@icrlogin/shared';
 import { BackupArchiveWriter } from '../src/backups/archive-writer.js';
@@ -63,6 +63,27 @@ describe('backup archive primitives', () => {
       const symlink = join(root, 'symlink.icrbackup');
       await writeStoredZip(symlink, [{ name: 'profile.json', content: 'target', externalFileAttributes: 0o120777 << 16 }, { name: 'manifest.json', content: manifest }]);
       await expect(new BackupArchiveReader().inspect(symlink)).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+    } finally { await removeTempRoot(root); }
+  });
+
+  it('revalidates payload hashes if the archive changes after inspection', async () => {
+    const root = await createTempRoot();
+    try {
+      const archive = join(root, 'original.icrbackup');
+      const replacement = join(root, 'replacement.icrbackup');
+      const writer = new BackupArchiveWriter();
+      await writer.write(archive, [{ archivePath: 'profile.json', data: Buffer.from('{"name":"original"}') }], baseManifest);
+      await writer.write(replacement, [{ archivePath: 'profile.json', data: Buffer.from('{"name":"replacement"}') }], baseManifest);
+      const destination = join(root, 'restore');
+      await mkdir(destination);
+      class SwappingReader extends BackupArchiveReader {
+        override async inspect(path: string) {
+          const validated = await super.inspect(path);
+          await copyFile(replacement, path);
+          return validated;
+        }
+      }
+      await expect(new SwappingReader().extract(archive, destination)).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
     } finally { await removeTempRoot(root); }
   });
 });
