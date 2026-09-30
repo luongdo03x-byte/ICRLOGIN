@@ -10,6 +10,7 @@ export interface Database {
   pragma(source: string, options?: { simple?: boolean }): unknown;
   exec(source: string): void;
   prepare(source: string): Statement;
+  backup(destination: string): Promise<unknown>;
   close(): void;
 }
 
