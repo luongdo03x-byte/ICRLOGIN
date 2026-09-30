@@ -20,6 +20,10 @@ export interface BackupManifestBase {
   browserVersion: string;
 }
 
+function isFileEntry(input: BackupArchiveInputEntry): input is Extract<BackupArchiveInputEntry, { sourcePath: string }> {
+  return typeof input.sourcePath === 'string';
+}
+
 function hashData(data: Uint8Array): { sha256: string; byteLength: number } {
   return { sha256: createHash('sha256').update(data).digest('hex'), byteLength: data.byteLength };
 }
@@ -34,7 +38,7 @@ export class BackupArchiveWriter {
       if (path === 'manifest.json') throw new Error('manifest.json is reserved');
       if (seen.has(path)) throw new Error(`Duplicate backup entry: ${path}`);
       seen.add(path);
-      const digest = 'sourcePath' in input ? await hashFile(input.sourcePath) : hashData(input.data);
+      const digest = isFileEntry(input) ? await hashFile(input.sourcePath) : hashData(input.data);
       normalized.push({ input, path, digest });
     }
 
@@ -47,7 +51,7 @@ export class BackupArchiveWriter {
     const zip = new yazl.ZipFile();
     const outputPromise = pipeline(zip.outputStream, createWriteStream(destination, { flags: 'wx' }));
     for (const entry of normalized) {
-      if ('sourcePath' in entry.input) zip.addFile(entry.input.sourcePath, entry.path);
+      if (isFileEntry(entry.input)) zip.addFile(entry.input.sourcePath, entry.path);
       else zip.addBuffer(Buffer.from(entry.input.data), entry.path);
     }
     zip.addBuffer(Buffer.from(JSON.stringify(manifest), 'utf8'), 'manifest.json');
