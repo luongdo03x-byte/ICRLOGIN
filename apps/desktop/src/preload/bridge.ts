@@ -1,15 +1,17 @@
 import {
   DESKTOP_CHANNELS,
+  PHASE5_DESKTOP_CHANNELS,
   type ApiEnvelope,
+  type BackupMode,
   type BrowserDownloadProgressEvent,
-  type IcrDesktopApi,
+  type IcrDesktopApiV5,
   type ProfileCloneMode
 } from '@icrlogin/shared';
 
 export type DesktopInvoke=(channel:string,payload?:unknown)=>Promise<ApiEnvelope<unknown>>;
 export type DesktopSubscribe=(channel:string,listener:(payload:unknown)=>void)=>(()=>void);
 
-export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscribe):IcrDesktopApi{
+export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscribe):IcrDesktopApiV5{
   return Object.freeze({
     health:()=>invoke(DESKTOP_CHANNELS.health),
     profiles:Object.freeze({
@@ -75,6 +77,18 @@ export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscri
       installed:()=>invoke(DESKTOP_CHANNELS.browsersInstalled),
       download:(version:string)=>invoke(DESKTOP_CHANNELS.browsersDownload,{version}),
       onDownloadProgress:(listener:(progress:BrowserDownloadProgressEvent)=>void)=>subscribe(DESKTOP_CHANNELS.browserDownloadProgress,payload=>listener(payload as BrowserDownloadProgressEvent))
+    }),
+    backups:Object.freeze({
+      list:()=>invoke(PHASE5_DESKTOP_CHANNELS.backupsList)
+    }),
+    phase5Profiles:Object.freeze({
+      backup:(id:string,mode:BackupMode)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesBackup,{id,mode}),
+      restoreBackup:()=>invoke(PHASE5_DESKTOP_CHANNELS.profilesRestoreBackup),
+      exportConfig:(id:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesExportConfig,{id}),
+      importConfig:(requestedName?:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesImportConfig,requestedName?{requestedName}:{}),
+      listTrash:()=>invoke(PHASE5_DESKTOP_CHANNELS.profilesListTrash),
+      restoreTrash:(id:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesRestoreTrash,{id}),
+      permanentDelete:(id:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesPermanentDelete,{id})
     })
-  }) as unknown as IcrDesktopApi;
+  }) as unknown as IcrDesktopApiV5;
 }
