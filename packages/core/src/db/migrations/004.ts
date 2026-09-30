@@ -9,7 +9,7 @@ export const migration004 = {
         profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL,
         mode TEXT NOT NULL CHECK (mode IN ('metadata', 'full')),
         file_name TEXT NOT NULL,
-        checksum TEXT NOT NULL,
+        checksum TEXT,
         status TEXT NOT NULL CHECK (status IN ('completed', 'failed')),
         created_at TEXT NOT NULL
       );
