@@ -133,4 +133,25 @@ export class ProfileFiles {
   async restoreFromTrash(profileId: string): Promise<void> {
     await rename(childPath(this.paths.trashDir, profileId), childPath(this.paths.profilesDir, profileId));
   }
+
+  async stageTrashPurge(profileId: string): Promise<string> {
+    const source = childPath(this.paths.trashDir, profileId);
+    const staged = childPath(this.paths.trashDir, `.purging-${profileId}-${randomUUID()}`);
+    await rename(source, staged);
+    return staged;
+  }
+
+  async rollbackTrashPurge(stagedPath: string, profileId: string): Promise<void> {
+    const expectedPrefix = resolve(this.paths.trashDir, '.purging-');
+    const staged = resolve(stagedPath);
+    if (!staged.startsWith(expectedPrefix)) throw new Error('Invalid trash purge staging path');
+    await rename(staged, childPath(this.paths.trashDir, profileId));
+  }
+
+  async commitTrashPurge(stagedPath: string): Promise<void> {
+    const expectedPrefix = resolve(this.paths.trashDir, '.purging-');
+    const staged = resolve(stagedPath);
+    if (!staged.startsWith(expectedPrefix)) throw new Error('Invalid trash purge staging path');
+    await rm(staged, { recursive: true, force: true });
+  }
 }
