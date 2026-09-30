@@ -15,6 +15,7 @@ import {
   GroupRepository,
   GroupService,
   PortAllocator,
+  ProcessMonitor,
   ProcessRegistry,
   ProfileBackupService,
   ProfileCloneService,
@@ -40,6 +41,7 @@ import {
   type BrowserArtifactProvider,
   type CdpWaiter,
   type Database,
+  type ProcessMetricsReader,
   type SecretStore
 } from '@icrlogin/core';
 import { AppError, type ProfileTemplate } from '@icrlogin/shared';
@@ -50,9 +52,9 @@ export interface AppServices {
   profileClones: ProfileCloneService; templates: ProfileTemplateService; bulk: BulkOperationService;
   profileMutations: ProfileMutationCoordinator; registry: ProcessRegistry; runtimeSessions: RuntimeSessionRepository;
   backups: BackupHistoryRepository; profileBackups: ProfileBackupService; profileRestore: ProfileRestoreService;
-  profileConfigTransfer: ProfileConfigTransferService; databaseBackups: DatabaseBackupService;
+  profileConfigTransfer: ProfileConfigTransferService; databaseBackups: DatabaseBackupService; monitoring: ProcessMonitor;
 }
-export interface CreateAppServicesOptions { db: Database; paths: AppPaths; secretStore: SecretStore; browserArtifactProvider: BrowserArtifactProvider; browserArtifactInstaller?: BrowserArtifactInstaller; cdpWaiter?: CdpWaiter; registry?: ProcessRegistry; }
+export interface CreateAppServicesOptions { db: Database; paths: AppPaths; secretStore: SecretStore; browserArtifactProvider: BrowserArtifactProvider; browserArtifactInstaller?: BrowserArtifactInstaller; cdpWaiter?: CdpWaiter; registry?: ProcessRegistry; processMetricsReader?: ProcessMetricsReader; }
 
 export function createAppServices(options: CreateAppServicesOptions): AppServices {
   const profileRepository = new ProfileRepository(options.db);
@@ -68,6 +70,7 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
   const profileFiles = new ProfileFiles(options.paths);
   const operationLock = new ProfileOperationLock();
   const profileMutations = new ProfileMutationCoordinator(operationLock, registry);
+  const monitoring = new ProcessMonitor({ registry, reader: options.processMetricsReader ?? { read: async () => null } });
 
   const groups = new GroupService(groupRepository, { profileMutations });
   const proxies = new ProxyService(proxyRepository, options.secretStore);
@@ -134,5 +137,5 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
     }
   });
 
-  return { profiles, groups, proxies, proxyConnectivity, tags, extensions, browserVersions, browsers, profileClones, templates, bulk, profileMutations, registry, runtimeSessions, backups: backupHistory, profileBackups, profileRestore, profileConfigTransfer, databaseBackups };
+  return { profiles, groups, proxies, proxyConnectivity, tags, extensions, browserVersions, browsers, profileClones, templates, bulk, profileMutations, registry, runtimeSessions, backups: backupHistory, profileBackups, profileRestore, profileConfigTransfer, databaseBackups, monitoring };
 }
