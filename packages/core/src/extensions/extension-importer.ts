@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { cp, lstat, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import * as yauzl from 'yauzl';
 import { AppError, type ExtensionSourceType } from '@icrlogin/shared';
@@ -9,6 +9,7 @@ import type { AppPaths } from '../app-paths.js';
 import { writeCrxZipPayload } from './crx-reader.js';
 
 export interface ImportedExtension { id:string;name:string;version:string;sourceType:ExtensionSourceType;sourcePath:string; }
+export interface StagedInternalRemoval { commit():Promise<void>; rollback():Promise<void>; }
 export type SafeZipExtractor=(zipPath:string,destinationDir:string)=>Promise<void>;
 export type DirectoryCopier=(sourceDir:string,destinationDir:string)=>Promise<void>;
 const defaultDirectoryCopier:DirectoryCopier=(source,destination)=>cp(source,destination,{recursive:true,dereference:false,force:false,errorOnExist:true});
@@ -26,6 +27,19 @@ export class ExtensionImporter {
   constructor(private readonly paths:AppPaths,private readonly idFactory:()=>string=randomUUID,private readonly zipExtractor:SafeZipExtractor=extractExtensionZip,private readonly directoryCopier:DirectoryCopier=defaultDirectoryCopier){}
   async importUnpacked(sourceDir:string):Promise<ImportedExtension>{const source=resolve(sourceDir);const root=resolve(this.paths.extensionsDir);const rel=relative(root,source);if(rel===''||(!rel.startsWith(`..${sep}`)&&rel!=='..'&&!isAbsolute(rel)))throw invalidExtension('Cannot import an extension from the managed extension directory');await assertUnpackedTreeSafe(source);return this.importIntoManagedRoot('unpacked',async(stagingDir)=>{await this.directoryCopier(source,stagingDir);await assertUnpackedTreeSafe(stagingDir);});}
   async importCrx(crxPath:string):Promise<ImportedExtension>{await mkdir(this.paths.downloadsTempDir,{recursive:true});const tempZip=resolve(this.paths.downloadsTempDir,`extension-${randomUUID()}.zip`);try{await writeCrxZipPayload(resolve(crxPath),tempZip);return await this.importIntoManagedRoot('crx',async(stagingDir)=>{await mkdir(stagingDir,{recursive:false});await this.zipExtractor(tempZip,stagingDir);});}finally{await rm(tempZip,{force:true});}}
-  async removeInternal(sourcePath:string):Promise<void>{const root=resolve(this.paths.extensionsDir);const target=resolve(sourcePath);if(target===root||dirname(target)!==root)throw invalidExtension('Extension path is outside the managed root');await rm(target,{recursive:true,force:false});}
+  async removeInternal(sourcePath:string):Promise<void>{const target=this.requireManagedChild(sourcePath);await rm(target,{recursive:true,force:false});}
+  async stageInternalRemoval(sourcePath:string):Promise<StagedInternalRemoval>{
+    const target=this.requireManagedChild(sourcePath);
+    const root=resolve(this.paths.extensionsDir);
+    const staged=resolve(root,`.removing-${basename(target)}-${randomUUID()}`);
+    if(dirname(staged)!==root)throw invalidExtension('Invalid staged extension path');
+    await rename(target,staged);
+    let state:'staged'|'committed'|'rolled-back'='staged';
+    return {
+      commit:async()=>{if(state!=='staged')return;await rm(staged,{recursive:true,force:true});state='committed';},
+      rollback:async()=>{if(state!=='staged')return;await rename(staged,target);state='rolled-back';}
+    };
+  }
+  private requireManagedChild(sourcePath:string):string{const root=resolve(this.paths.extensionsDir);const target=resolve(sourcePath);if(target===root||dirname(target)!==root)throw invalidExtension('Extension path is outside the managed root');return target;}
   private async importIntoManagedRoot(sourceType:ExtensionSourceType,populate:(stagingDir:string)=>Promise<void>):Promise<ImportedExtension>{await mkdir(this.paths.extensionsDir,{recursive:true});const id=this.idFactory();const root=resolve(this.paths.extensionsDir);const stagingDir=resolve(root,`.staging-${id}-${randomUUID()}`);const finalDir=resolve(root,id);if(dirname(finalDir)!==root||dirname(stagingDir)!==root)throw invalidExtension('Invalid managed extension path');try{await populate(stagingDir);const manifest=await readManifest(stagingDir);await rename(stagingDir,finalDir);return{id,name:manifest.name,version:manifest.version,sourceType,sourcePath:finalDir};}catch(error){await rm(stagingDir,{recursive:true,force:true});if(error instanceof AppError)throw error;throw invalidExtension('Extension import failed');}}
 }
