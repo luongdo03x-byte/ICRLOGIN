@@ -17,6 +17,7 @@ export interface ProcessMetricPublic {
 export interface StartupRecoveryPublic {
   databaseHealthy: boolean;
   quickCheck: string;
+  recoveredEntries: number;
   cleanedEntries: number;
   cleanupErrors: number;
 }
