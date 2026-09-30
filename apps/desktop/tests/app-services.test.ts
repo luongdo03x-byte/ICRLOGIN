@@ -25,7 +25,7 @@ describe('createAppServices', () => {
       }
     });
 
-    for (const key of ['profiles', 'groups', 'proxies', 'proxyConnectivity', 'tags', 'extensions', 'browserVersions', 'browsers', 'profileClones', 'templates', 'bulk', 'registry', 'runtimeSessions'] as const) {
+    for (const key of ['profiles', 'groups', 'proxies', 'proxyConnectivity', 'tags', 'extensions', 'browserVersions', 'browsers', 'profileClones', 'templates', 'bulk', 'profileMutations', 'registry', 'runtimeSessions'] as const) {
       expect(services[key]).toBeDefined();
     }
 
