@@ -25,10 +25,8 @@ export interface CreateElectronUpdateAdapterOptions {
 }
 
 function parseFeedUrl(raw: string): string | null {
-  const value = raw.trim();
-  if (!value) return null;
   try {
-    const url = new URL(value);
+    const url = new URL(raw.trim());
     if (url.protocol !== 'https:' || url.username || url.password) return null;
     return url.toString();
   } catch {
@@ -50,8 +48,9 @@ export function createElectronUpdateAdapter(options: CreateElectronUpdateAdapter
   if (!options.isPackaged) return null;
 
   let publish: GenericUpdateOptions | undefined;
-  if (options.feedUrl !== undefined) {
-    const feedUrl = parseFeedUrl(options.feedUrl);
+  const override = options.feedUrl?.trim();
+  if (override) {
+    const feedUrl = parseFeedUrl(override);
     if (!feedUrl) return null;
     publish = { provider: 'generic', url: feedUrl };
   }
