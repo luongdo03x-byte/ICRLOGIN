@@ -11,6 +11,7 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "lint": "eslint .",
+    "verify:release-parity": "node tools/verify-release-parity.mjs",
     "test:integration:chromium": "npm run test:integration:chromium -w @icrlogin/core",
     "test:desktop:packaged": "node tools/electron-packaged-smoke.mjs",
     "package:dir": "npm run package:dir -w @icrlogin/desktop",
