@@ -2,7 +2,7 @@
 
 ICRLogin is a Windows-first, local-first Chromium profile manager and automation foundation.
 
-Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow. Phase 6 adds redacted structured logging primitives, managed Chromium CPU/RAM monitoring, SQLite startup integrity checks, database-aware crash staging recovery, and a recovery-only degraded mode when database integrity fails. Phase 7 adds versioned persistent settings, launch-with-Windows, safe close behavior, configurable localhost API port and advanced Browser Manager refresh/uninstall controls.
+Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow. Phase 6 adds redacted structured logging primitives, managed Chromium CPU/RAM monitoring, SQLite startup integrity checks, database-aware crash staging recovery, and a recovery-only degraded mode when database integrity fails. Phase 7 adds versioned persistent settings, launch-with-Windows, safe close behavior, configurable localhost API port and advanced Browser Manager refresh/uninstall controls. Phase 8 adds Windows x64 NSIS packaging, code-signing-aware release automation, typed application-update status/check/download controls and safe install-on-normal-quit behavior.
 
 ## Local automation API
 
@@ -28,7 +28,21 @@ Settings stores versioned public application preferences atomically under the lo
 
 Browser Manager can refresh manifest/installed state, retry downloads, show managed artifact size and executable health, and remove a Chromium version only when no active profile references it. A broken unused install can be removed and downloaded again.
 
-See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), and [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md).
+## Windows installer and app updates
+
+ICRLogin packages as a Windows x64 NSIS installer. Managed Chromium and `%LOCALAPPDATA%/ICRLogin` user data are intentionally outside the application installer. The production updater is pinned to the `luongdo03x-byte/ICRLOGIN` GitHub release feed through packaged `app-update.yml` metadata.
+
+Settings → Updates can check and download an application update. V1 does not expose a force-restart/install action; a downloaded update is left for the normal application quit/restart flow and no update path force-stops managed Chromium.
+
+Development installer packaging:
+
+```powershell
+npm run package:win
+```
+
+Tagged production releases require `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` GitHub Actions secrets and enforce Windows code signing before publishing the installer, blockmap and `latest.yml` to a GitHub Release.
+
+See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md), and [`docs/development/phase-8-installer-auto-update.md`](docs/development/phase-8-installer-auto-update.md).
 
 ## Development
 
@@ -44,6 +58,6 @@ npm run build -w @icrlogin/desktop
 npm run dev -w @icrlogin/desktop
 ```
 
-Developer details are documented in [`docs/development/phase-1-core.md`](docs/development/phase-1-core.md), [`docs/development/phase-2-desktop-ui.md`](docs/development/phase-2-desktop-ui.md), [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md), [`docs/development/phase-4-profile-ops-extensions.md`](docs/development/phase-4-profile-ops-extensions.md), [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), and [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md).
+Developer details are documented in [`docs/development/phase-1-core.md`](docs/development/phase-1-core.md), [`docs/development/phase-2-desktop-ui.md`](docs/development/phase-2-desktop-ui.md), [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md), [`docs/development/phase-4-profile-ops-extensions.md`](docs/development/phase-4-profile-ops-extensions.md), [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md), and [`docs/development/phase-8-installer-auto-update.md`](docs/development/phase-8-installer-auto-update.md).
 
 The approved design and implementation plans are under [`docs/superpowers/`](docs/superpowers/).
