@@ -27,6 +27,21 @@ export default tseslint.config(
     }
   },
   {
+    files: ['apps/desktop/src/main/index.ts'],
+    rules: {
+      'no-control-regex': 'off'
+    }
+  },
+  {
+    files: [
+      'apps/desktop/src/main/windows-process-inspector.ts',
+      'apps/desktop/src/main/windows-process-metrics.ts'
+    ],
+    rules: {
+      'no-useless-escape': 'off'
+    }
+  },
+  {
     files: ['tools/**/*.mjs'],
     languageOptions: {
       globals: {
