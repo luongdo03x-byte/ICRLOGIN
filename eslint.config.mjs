@@ -14,6 +14,19 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['**/*.ts', '**/*.tsx'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        ignoreRestSiblings: true
+      }],
+      'no-empty': ['error', { allowEmptyCatch: true }]
+    }
+  },
+  {
     files: ['tools/**/*.mjs'],
     languageOptions: {
       globals: {
