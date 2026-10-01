@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createI18nStore, normalizeLocale, translate } from '../src/renderer/src/i18n/i18n.js';
+import { createI18nStore, normalizeLocale, translate, translateLiteral } from '../src/renderer/src/i18n/i18n.js';
 
 describe('renderer i18n', () => {
   it('defaults unknown locales to Vietnamese', () => {
@@ -12,6 +12,14 @@ describe('renderer i18n', () => {
     expect(translate('en', 'nav.profiles')).toBe('Profiles');
     expect(translate('vi', 'settings.language')).toBe('Ngôn ngữ');
     expect(translate('en', 'settings.language')).toBe('Language');
+  });
+
+  it('translates centralized renderer literals without touching unknown values', () => {
+    expect(translateLiteral('vi', 'Profiles')).toBe('Hồ sơ');
+    expect(translateLiteral('vi', 'Create profile')).toBe('Tạo hồ sơ');
+    expect(translateLiteral('en', 'Profiles')).toBe('Profiles');
+    expect(translateLiteral('vi', 'Chromium')).toBe('Chromium');
+    expect(translateLiteral('vi', 'Custom profile name')).toBe('Custom profile name');
   });
 
   it('persists the selected locale and notifies subscribers', () => {
