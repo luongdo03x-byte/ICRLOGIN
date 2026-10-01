@@ -35,8 +35,8 @@ export function SettingsPage() {
     onError: (error) => setMessage(error instanceof Error ? error.message : 'Unable to save settings.')
   });
 
-  if (settings.isLoading || !draft) return <div className="page-frame"><div className="table-loading">Loading settings…</div></div>;
   if (settings.isError) return <div className="page-frame"><div className="form-error">Unable to load settings.</div></div>;
+  if (settings.isLoading || !draft) return <div className="page-frame"><div className="table-loading">Loading settings…</div></div>;
 
   return <div className="page-frame settings-page">
     <header className="page-header">
