@@ -3,11 +3,11 @@ import type { AppErrorCode } from './errors.js';
 import {
   CreateProfileInputSchema,
   UpdateProfileInputSchema,
-  type BrowserRuntimeState,
   type CreateProfileInput,
   type Profile,
   type UpdateProfileInput
 } from './profile.js';
+import type { BrowserRuntimeState } from './browser.js';
 import {
   CreateGroupInputSchema,
   UpdateGroupInputSchema,
