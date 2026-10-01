@@ -13,6 +13,7 @@ export * from './logging/logger.js';
 export * from './logging/redaction.js';
 export * from './monitoring/process-monitor.js';
 export * from './recovery/startup-recovery.js';
+export * from './settings/app-settings-store.js';
 export * from './browsers/artifact-provider.js';
 export * from './browsers/browser-download-installer.js';
 export * from './browsers/browser-service.js';
