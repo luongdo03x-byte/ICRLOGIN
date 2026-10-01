@@ -96,7 +96,7 @@ describe('GroupService', () => {
       idFactory: () => 'g1',
       now: () => '2026-01-01T00:00:00.000Z',
       profileMutations: {
-        async runWithStoppedProfiles(ids) {
+        async runWithStoppedProfiles(ids: readonly string[]) {
           seenIds.push([...ids]);
           throw new AppError('INVALID_REQUEST', 'Stop affected profiles before deleting group');
         }
