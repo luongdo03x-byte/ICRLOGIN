@@ -35,6 +35,35 @@ function windowsIdentity(value: string): string {
   return value.replace(/\\/g, '/').toLowerCase();
 }
 
+function tokenizeCommandLine(value: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let quoted = false;
+  for (const char of value) {
+    if (char === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if (/\s/.test(char) && !quoted) {
+      if (current) { tokens.push(current); current = ''; }
+      continue;
+    }
+    current += char;
+  }
+  if (current) tokens.push(current);
+  return tokens;
+}
+
+function commandLineHasArgument(commandLine: string, name: string, expectedValue: string | number): boolean {
+  const prefix = `--${name}=`.toLowerCase();
+  const expected = windowsIdentity(String(expectedValue));
+  for (const token of tokenizeCommandLine(commandLine)) {
+    if (!token.toLowerCase().startsWith(prefix)) continue;
+    return windowsIdentity(token.slice(prefix.length)) === expected;
+  }
+  return false;
+}
+
 function profileLockPath(paths: AppPaths, profileId: string): string | null {
   if (!profileId || profileId.includes('/') || profileId.includes('\\') || profileId === '.' || profileId === '..') return null;
   return join(paths.profilesDir, profileId, 'runtime', 'profile.lock');
@@ -69,7 +98,9 @@ export class RuntimeReconciler {
     }
     if (!process || process.pid !== session.pid) return false;
     if (windowsIdentity(process.executablePath) !== windowsIdentity(session.executablePath)) return false;
-    if (!windowsIdentity(process.commandLine).includes(windowsIdentity(session.userDataDir))) return false;
+    if (!commandLineHasArgument(process.commandLine, 'user-data-dir', session.userDataDir)) return false;
+    if (!commandLineHasArgument(process.commandLine, 'remote-debugging-address', '127.0.0.1')) return false;
+    if (!commandLineHasArgument(process.commandLine, 'remote-debugging-port', session.remoteDebuggingPort)) return false;
     if (!session.cdpHttpUrl.startsWith('http://127.0.0.1:')) return false;
 
     const controller = new AbortController();
