@@ -14,7 +14,7 @@ import {
 } from '@icrlogin/core';
 import { AppError } from '@icrlogin/shared';
 import { EncryptedApiTokenStore, resolveApiToken } from './api-token-store.js';
-import { createAppServices } from './app-services.js';
+import { createAppServices, type AppServices } from './app-services.js';
 import {
   createSecureWindowOptions,
   maskDataRoot,
@@ -42,26 +42,27 @@ async function bootstrap(): Promise<void> {
 
   const db = openDatabase(join(paths.dataDir, 'icrlogin.db'));
   const startupRecovery = await new StartupRecoveryService({ db, paths }).run();
+  let services: AppServices | null = null;
+  let apiServer: LocalApiServer | null = null;
+
   if (startupRecovery.databaseHealthy) {
     const databaseBackups = new DatabaseBackupService(db, paths);
     await runMigrations(db, { beforeMigration: () => databaseBackups.create('migration').then(() => undefined) });
-  }
 
-  const secretStore = new ElectronSafeStorageSecretStore(safeStorage);
-  const manifestSettings = resolveBrowserManifestSettings(paths, process.env.ICRLOGIN_BROWSER_MANIFEST_URL);
-  const browserArtifactProvider = manifestSettings.manifestUrl
-    ? new HttpBrowserArtifactProvider(manifestSettings.manifestUrl, manifestSettings.cachePath)
-    : new JsonFileBrowserArtifactProvider(manifestSettings.cachePath);
+    const secretStore = new ElectronSafeStorageSecretStore(safeStorage);
+    const manifestSettings = resolveBrowserManifestSettings(paths, process.env.ICRLOGIN_BROWSER_MANIFEST_URL);
+    const browserArtifactProvider = manifestSettings.manifestUrl
+      ? new HttpBrowserArtifactProvider(manifestSettings.manifestUrl, manifestSettings.cachePath)
+      : new JsonFileBrowserArtifactProvider(manifestSettings.cachePath);
 
-  const services = createAppServices({
-    db,
-    paths,
-    secretStore,
-    browserArtifactProvider,
-    processMetricsReader: new WindowsProcessMetricsReader()
-  });
+    services = createAppServices({
+      db,
+      paths,
+      secretStore,
+      browserArtifactProvider,
+      processMetricsReader: new WindowsProcessMetricsReader()
+    });
 
-  if (startupRecovery.databaseHealthy) {
     const reconciler = new RuntimeReconciler({
       runtimeSessions: services.runtimeSessions,
       registry: services.registry,
@@ -71,28 +72,24 @@ async function bootstrap(): Promise<void> {
     });
     await reconciler.reconcile();
     services.monitoring.start();
-  }
 
-  registerIpcHandlers(ipcMain, services, { dataRootLabel: maskDataRoot(dataRoot) });
-  registerPhase5IpcHandlers(ipcMain, services, {
-    async selectRestoreBackup() {
-      const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'ICRLogin Backup', extensions: ['icrbackup'] }] });
-      return result.canceled ? null : result.filePaths[0] ?? null;
-    },
-    async selectConfigImport() {
-      const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'ICRLogin Profile', extensions: ['json'] }] });
-      return result.canceled ? null : result.filePaths[0] ?? null;
-    },
-    async selectConfigExport(profileName) {
-      const safeName = profileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim() || 'profile';
-      const result = await dialog.showSaveDialog({ defaultPath: `${safeName}.icrprofile.json`, filters: [{ name: 'ICRLogin Profile', extensions: ['json'] }] });
-      return result.canceled ? null : result.filePath ?? null;
-    }
-  });
-  registerPhase6IpcHandlers(ipcMain, services, startupRecovery);
+    registerIpcHandlers(ipcMain, services, { dataRootLabel: maskDataRoot(dataRoot) });
+    registerPhase5IpcHandlers(ipcMain, services, {
+      async selectRestoreBackup() {
+        const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'ICRLogin Backup', extensions: ['icrbackup'] }] });
+        return result.canceled ? null : result.filePaths[0] ?? null;
+      },
+      async selectConfigImport() {
+        const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'ICRLogin Profile', extensions: ['json'] }] });
+        return result.canceled ? null : result.filePaths[0] ?? null;
+      },
+      async selectConfigExport(profileName) {
+        const safeName = profileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim() || 'profile';
+        const result = await dialog.showSaveDialog({ defaultPath: `${safeName}.icrprofile.json`, filters: [{ name: 'ICRLogin Profile', extensions: ['json'] }] });
+        return result.canceled ? null : result.filePath ?? null;
+      }
+    });
 
-  let apiServer: LocalApiServer | null = null;
-  if (startupRecovery.databaseHealthy) {
     try {
       const apiSettings = resolveLocalApiSettings(process.env, paths);
       const tokenStore = new EncryptedApiTokenStore(apiSettings.tokenFile, secretStore);
@@ -110,6 +107,8 @@ async function bootstrap(): Promise<void> {
     }
   }
 
+  registerPhase6IpcHandlers(ipcMain, services, startupRecovery);
+
   const mainDir = moduleDirectory(import.meta.url);
   const window = new BrowserWindow(createSecureWindowOptions(join(mainDir, '../preload/index.js')));
   const devUrl = process.env.ELECTRON_RENDERER_URL;
@@ -122,7 +121,7 @@ async function bootstrap(): Promise<void> {
     event.preventDefault();
     shutdownStarted = true;
     void (async () => {
-      services.monitoring.stop();
+      services?.monitoring.stop();
       try {
         await apiServer?.stop();
       } catch {
