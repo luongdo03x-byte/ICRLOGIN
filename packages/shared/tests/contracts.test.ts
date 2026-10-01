@@ -98,7 +98,23 @@ describe('shared contracts', () => {
     const cleanExport = {
       formatVersion: 1,
       exportedAt: '2026-09-30T00:00:00.000Z',
-      profile: { name: 'QA', browserVersion: '144.0.0', groupId: null, proxyId: null, startupUrls: [] },
+      profile: {
+        name: 'QA',
+        browserVersion: '144.0.0',
+        groupId: null,
+        proxyId: null,
+        userAgent: null,
+        language: 'en-US',
+        timezone: 'UTC',
+        windowWidth: 1280,
+        windowHeight: 800,
+        screenWidth: 1920,
+        screenHeight: 1080,
+        webrtcEnabled: true,
+        geolocationMode: 'ask',
+        startupUrls: [],
+        description: null
+      },
       tagIds: [],
       extensionIds: []
     };
