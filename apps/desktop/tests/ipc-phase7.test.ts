@@ -20,7 +20,16 @@ function harness(options: {
   registerPhase7IpcHandlers(ipcMain, {
     settings: {
       read: async () => ({ ...current }),
-      update: async (patch) => { updates.push(patch); current = { ...current, ...patch }; return { ...current }; }
+      update: async (patch) => {
+        updates.push(patch);
+        current = {
+          ...current,
+          launchAtLogin: patch.launchAtLogin ?? current.launchAtLogin,
+          closeBehavior: patch.closeBehavior ?? current.closeBehavior,
+          localApiPort: patch.localApiPort ?? current.localApiPort
+        };
+        return { ...current };
+      }
     },
     setLaunchAtLogin: async (enabled) => { startupCalls.push(enabled); await options.setLaunchAtLogin?.(enabled); },
     browserVersions: options.browserServicesAvailable === false ? null : {
