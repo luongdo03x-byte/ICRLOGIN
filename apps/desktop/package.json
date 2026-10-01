@@ -7,7 +7,7 @@
   "scripts": {
     "test": "vitest run",
     "build": "electron-vite build",
-    "predev": "electron-builder install-app-deps",
+    "predev": "electron-rebuild -f -w better-sqlite3 -v 38.1.2",
     "dev": "electron-vite dev",
     "package:dir": "npm run build && electron-builder --dir --win --x64 --publish never",
     "package:win": "npm run build && electron-builder --win nsis --x64 --publish never",
