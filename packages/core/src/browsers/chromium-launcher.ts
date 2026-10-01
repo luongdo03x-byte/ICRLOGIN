@@ -20,7 +20,7 @@ export interface SpawnOptions {
 export interface SpawnedProcessLike {
   pid?: number | undefined;
   once(event: 'exit', listener: (code: number | null, signal: string | null) => void): this;
-  kill(signal?: string): boolean;
+  kill(signal?: number | NodeJS.Signals): boolean;
 }
 
 export type SpawnFunction = (
