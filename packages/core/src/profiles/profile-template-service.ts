@@ -33,10 +33,10 @@ export interface TemplateReferenceValidator {
 }
 
 export interface TemplateProfileOverrides {
-  name?: string;
-  groupId?: string | null;
-  proxyId?: string | null;
-  browserVersion?: string;
+  name?: string | undefined;
+  groupId?: string | null | undefined;
+  proxyId?: string | null | undefined;
+  browserVersion?: string | undefined;
 }
 
 export interface ProfileTemplateServiceOptions {
