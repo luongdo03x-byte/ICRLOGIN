@@ -20,7 +20,7 @@ export type NsisUpdaterFactory = (options?: GenericUpdateOptions) => NsisUpdater
 
 export interface CreateElectronUpdateAdapterOptions {
   isPackaged: boolean;
-  feedUrl?: string;
+  feedUrl?: string | undefined;
   updaterFactory?: NsisUpdaterFactory;
 }
 
