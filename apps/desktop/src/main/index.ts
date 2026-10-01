@@ -33,7 +33,7 @@ import { registerPhase7IpcHandlers } from './ipc-phase7.js';
 import { registerPhase8IpcHandlers } from './ipc-phase8.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
 import { acquireSingleInstance } from './single-instance.js';
-import { bindTray, createTrayMenuTemplate, showAndFocusMainWindow } from './tray-controller.js';
+import { bindTray, createTrayMenuTemplate, showAndFocusMainWindow, type TrayPort } from './tray-controller.js';
 import { resolveWindowCloseAction } from './window-close-policy.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
 import { WindowsProcessMetricsReader } from './windows-process-metrics.js';
@@ -135,7 +135,7 @@ async function bootstrap(): Promise<void> {
     const tray = new Tray(icon);
     const onShow = () => { showAndFocusMainWindow(window); };
     const menu = Menu.buildFromTemplate(createTrayMenuTemplate(onShow, () => app.quit()));
-    disposeTray = bindTray(tray, { menu, onShow });
+    disposeTray = bindTray(tray as unknown as TrayPort, { menu, onShow });
   } catch {
     disposeTray = null;
   }
@@ -188,5 +188,10 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-if (acquireSingleInstance(app, () => mainWindow)) void bootstrap();
+const ownsInstance = acquireSingleInstance({
+  requestLock: () => app.requestSingleInstanceLock(),
+  registerSecondInstance: (listener) => { app.on('second-instance', listener); },
+  quit: () => app.quit()
+}, () => mainWindow);
+if (ownsInstance) void bootstrap();
 app.on('window-all-closed', () => app.quit());
