@@ -27,17 +27,17 @@ describe('tray controller', () => {
     expect(show).toHaveBeenCalledOnce();
     expect(quit).toHaveBeenCalledOnce();
 
-    let doubleClick: (() => void) | null = null;
+    const doubleClick = { current: null as (() => void) | null };
     const tray = {
       setToolTip: vi.fn(),
       setContextMenu: vi.fn(),
-      on: vi.fn((_event: string, listener: () => void) => { doubleClick = listener; }),
+      on: vi.fn((_event: string, listener: () => void) => { doubleClick.current = listener; }),
       destroy: vi.fn()
     };
     const dispose = bindTray(tray, { menu: {}, onShow: show });
     expect(tray.setToolTip).toHaveBeenCalledWith('ICRLogin');
     expect(tray.setContextMenu).toHaveBeenCalledWith({});
-    doubleClick?.();
+    doubleClick.current?.();
     expect(show).toHaveBeenCalledTimes(2);
     dispose();
     expect(tray.destroy).toHaveBeenCalledOnce();
