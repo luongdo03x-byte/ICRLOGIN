@@ -47,9 +47,9 @@ export function resolveBrowserManifestSettings(paths: AppPaths, configuredUrl?: 
   return { manifestUrl: configuredUrl?.trim() || null, cachePath: join(paths.configDir, 'browser-manifest-win64.json') };
 }
 
-export function resolveLocalApiSettings(env: NodeJS.ProcessEnv, paths: AppPaths): LocalApiSettings {
+export function resolveLocalApiSettings(env: NodeJS.ProcessEnv, paths: AppPaths, persistedPort = 9495): LocalApiSettings {
   const rawPort = env.ICRLOGIN_API_PORT;
-  const candidate = rawPort === undefined ? 9495 : Number(rawPort);
+  const candidate = rawPort === undefined ? persistedPort : Number(rawPort);
   let port: number;
   try { port = HttpPortSchema.parse(candidate); }
   catch { throw new AppError('INVALID_REQUEST', 'Invalid local API port'); }
