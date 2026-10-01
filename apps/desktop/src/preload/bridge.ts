@@ -2,17 +2,19 @@ import {
   DESKTOP_CHANNELS,
   PHASE5_DESKTOP_CHANNELS,
   PHASE6_DESKTOP_CHANNELS,
+  PHASE7_DESKTOP_CHANNELS,
   type ApiEnvelope,
   type BackupMode,
   type BrowserDownloadProgressEvent,
-  type IcrDesktopApiV6,
-  type ProfileCloneMode
+  type IcrDesktopApiV7,
+  type ProfileCloneMode,
+  type UpdateAppSettings
 } from '@icrlogin/shared';
 
 export type DesktopInvoke=(channel:string,payload?:unknown)=>Promise<ApiEnvelope<unknown>>;
 export type DesktopSubscribe=(channel:string,listener:(payload:unknown)=>void)=>(()=>void);
 
-export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscribe):IcrDesktopApiV6{
+export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscribe):IcrDesktopApiV7{
   return Object.freeze({
     health:()=>invoke(DESKTOP_CHANNELS.health),
     profiles:Object.freeze({
@@ -45,7 +47,11 @@ export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscri
       start:(ids:string[],concurrency?:number)=>invoke(DESKTOP_CHANNELS.bulkStart,{ids,concurrency}),stop:(ids:string[])=>invoke(DESKTOP_CHANNELS.bulkStop,{ids}),moveGroup:(ids:string[],groupId:string|null)=>invoke(DESKTOP_CHANNELS.bulkMoveGroup,{ids,groupId}),assignProxy:(ids:string[],proxyId:string|null)=>invoke(DESKTOP_CHANNELS.bulkAssignProxy,{ids,proxyId}),addTags:(ids:string[],tagIds:string[])=>invoke(DESKTOP_CHANNELS.bulkAddTags,{ids,tagIds}),removeTags:(ids:string[],tagIds:string[])=>invoke(DESKTOP_CHANNELS.bulkRemoveTags,{ids,tagIds}),delete:(ids:string[])=>invoke(DESKTOP_CHANNELS.bulkDelete,{ids})
     }),
     browsers:Object.freeze({
-      available:()=>invoke(DESKTOP_CHANNELS.browsersAvailable),installed:()=>invoke(DESKTOP_CHANNELS.browsersInstalled),download:(version:string)=>invoke(DESKTOP_CHANNELS.browsersDownload,{version}),onDownloadProgress:(listener:(progress:BrowserDownloadProgressEvent)=>void)=>subscribe(DESKTOP_CHANNELS.browserDownloadProgress,payload=>listener(payload as BrowserDownloadProgressEvent))
+      available:()=>invoke(DESKTOP_CHANNELS.browsersAvailable),
+      installed:()=>invoke(DESKTOP_CHANNELS.browsersInstalled),
+      download:(version:string)=>invoke(DESKTOP_CHANNELS.browsersDownload,{version}),
+      remove:(version:string)=>invoke(PHASE7_DESKTOP_CHANNELS.browserRemove,{version}),
+      onDownloadProgress:(listener:(progress:BrowserDownloadProgressEvent)=>void)=>subscribe(DESKTOP_CHANNELS.browserDownloadProgress,payload=>listener(payload as BrowserDownloadProgressEvent))
     }),
     backups:Object.freeze({list:()=>invoke(PHASE5_DESKTOP_CHANNELS.backupsList)}),
     phase5Profiles:Object.freeze({
@@ -54,6 +60,10 @@ export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscri
     monitoring:Object.freeze({
       snapshot:()=>invoke(PHASE6_DESKTOP_CHANNELS.monitoringSnapshot),
       recoveryStatus:()=>invoke(PHASE6_DESKTOP_CHANNELS.recoveryStatus)
+    }),
+    settings:Object.freeze({
+      get:()=>invoke(PHASE7_DESKTOP_CHANNELS.settingsGet),
+      update:(patch:UpdateAppSettings)=>invoke(PHASE7_DESKTOP_CHANNELS.settingsUpdate,patch)
     })
-  }) as unknown as IcrDesktopApiV6;
+  }) as unknown as IcrDesktopApiV7;
 }
