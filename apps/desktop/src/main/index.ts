@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, Tray } from 'electron';
 import {
   AppSettingsStore,
+  CURRENT_DB_SCHEMA_VERSION,
   DatabaseBackupService,
   ensureAppPaths,
   HttpBrowserArtifactProvider,
@@ -13,7 +14,7 @@ import {
   StartupRecoveryService,
   waitForCdp
 } from '@icrlogin/core';
-import { AppError } from '@icrlogin/shared';
+import { AppError, BACKUP_FORMAT_VERSION, LOCAL_API_VERSION } from '@icrlogin/shared';
 import { AppUpdateService } from './app-update-service.js';
 import { EncryptedApiTokenStore, resolveApiToken } from './api-token-store.js';
 import { createAppServices, type AppServices } from './app-services.js';
@@ -31,6 +32,7 @@ import { registerPhase5IpcHandlers } from './ipc-phase5.js';
 import { registerPhase6IpcHandlers } from './ipc-phase6.js';
 import { registerPhase7IpcHandlers } from './ipc-phase7.js';
 import { registerPhase8IpcHandlers } from './ipc-phase8.js';
+import { registerPhase10IpcHandlers } from './ipc-phase10.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
 import { acquireSingleInstance } from './single-instance.js';
 import { bindTray, createTrayMenuTemplate, showAndFocusMainWindow, type TrayPort } from './tray-controller.js';
@@ -59,6 +61,16 @@ async function bootstrap(): Promise<void> {
 
   const db = openDatabase(join(paths.dataDir, 'icrlogin.db'));
   const startupRecovery = await new StartupRecoveryService({ db, paths }).run();
+  registerPhase10IpcHandlers(ipcMain, {
+    appVersion: app.getVersion(),
+    localApiVersion: LOCAL_API_VERSION,
+    databaseSchemaVersion: CURRENT_DB_SCHEMA_VERSION,
+    backupFormatVersion: BACKUP_FORMAT_VERSION,
+    databaseHealthy: startupRecovery.databaseHealthy,
+    packaged: app.isPackaged,
+    runtimeReadiness: startupRecovery.databaseHealthy ? 'operational' : 'recovery-required'
+  });
+
   let services: AppServices | null = null;
   let apiServer: LocalApiServer | null = null;
 
