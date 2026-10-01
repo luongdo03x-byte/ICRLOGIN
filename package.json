@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
     "lint": "eslint .",
     "test:integration:chromium": "npm run test:integration:chromium -w @icrlogin/core",
+    "test:desktop:packaged": "node tools/electron-packaged-smoke.mjs",
     "package:dir": "npm run package:dir -w @icrlogin/desktop",
     "package:win": "npm run package:win -w @icrlogin/desktop"
   },
