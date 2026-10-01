@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 import { NAV_ITEMS, useUiStore } from '../state/ui-store.js';
 
 export interface AppShellProps {
