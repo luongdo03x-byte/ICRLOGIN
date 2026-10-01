@@ -14,14 +14,23 @@ class FakeUpdater extends EventEmitter {
 }
 
 describe('electron update adapter', () => {
-  it('stays disabled for unpackaged builds or missing/non-https feeds', () => {
-    expect(createElectronUpdateAdapter({ isPackaged: false, feedUrl: 'https://updates.example/app' })).toBeNull();
-    expect(createElectronUpdateAdapter({ isPackaged: true, feedUrl: undefined })).toBeNull();
+  it('uses embedded app-update.yml in packaged builds and rejects unsafe runtime overrides', () => {
+    expect(createElectronUpdateAdapter({ isPackaged: false, feedUrl: undefined })).toBeNull();
+
+    const embedded = new FakeUpdater();
+    const embeddedCalls: any[] = [];
+    expect(createElectronUpdateAdapter({
+      isPackaged: true,
+      feedUrl: undefined,
+      updaterFactory: (options) => { embeddedCalls.push(options); return embedded as any; }
+    })).not.toBeNull();
+    expect(embeddedCalls).toEqual([undefined]);
+
     expect(createElectronUpdateAdapter({ isPackaged: true, feedUrl: 'http://updates.example/app' })).toBeNull();
     expect(createElectronUpdateAdapter({ isPackaged: true, feedUrl: 'https://user:pass@updates.example/app' })).toBeNull();
   });
 
-  it('constructs a generic https NSIS updater with manual download and safe on-quit install', async () => {
+  it('constructs a generic https NSIS updater override with manual download and safe on-quit install', async () => {
     const fake = new FakeUpdater();
     const calls: any[] = [];
     const adapter = createElectronUpdateAdapter({
@@ -45,7 +54,7 @@ describe('electron update adapter', () => {
 
   it('maps not-available, progress and downloaded events without exposing paths', async () => {
     const fake = new FakeUpdater();
-    const adapter = createElectronUpdateAdapter({ isPackaged: true, feedUrl: 'https://updates.example/app', updaterFactory: () => fake as any })!;
+    const adapter = createElectronUpdateAdapter({ isPackaged: true, feedUrl: undefined, updaterFactory: () => fake as any })!;
     const progress: any[] = [];
     const downloaded: string[] = [];
     adapter.onProgress((value) => progress.push(value));
