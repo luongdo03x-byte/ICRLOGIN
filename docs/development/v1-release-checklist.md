@@ -181,3 +181,39 @@ WIN_CSC_KEY_PASSWORD
 ```
 
 Do not call the release verified if GitHub Actions creates the job but no runner executes its steps (`runner_id=0`, empty/null `steps`).
+
+## 15. Release evidence and final sign-off
+
+Record the actual evidence for the candidate build:
+
+```text
+Release tag:
+Commit SHA:
+ICRLogin version:
+Local API version: 1
+Database schema version: 4
+Backup format version: 1
+Windows version tested:
+Installer SHA-256:
+Authenticode status:
+Windows Hardening workflow run:
+Release workflow run:
+Real Chromium integration result:
+Packaged Electron smoke result:
+Migration fixture result:
+Backup/restore result:
+Upgrade/data-preservation result:
+```
+
+Final sign-off:
+
+- [ ] Source implementation complete.
+- [ ] Windows Hardening workflow executed every configured step successfully.
+- [ ] Signed Release workflow executed every configured step successfully.
+- [ ] Fresh-install smoke passed.
+- [ ] Existing-data upgrade/update smoke passed without profile loss.
+- [ ] No open Critical/Important V1 correctness or security finding remains.
+
+### Current implementation-session caveat
+
+During Phase 5–10 implementation, GitHub Actions repeatedly created CI/Windows jobs but no hosted runner was assigned (`runner_id=0`, with empty/null `steps`). Those runs are not evidence that checkout, dependency installation, typecheck, tests, packaging or smoke commands executed. Until the release gates above run on Windows, the accurate state is **V1 source implementation complete / production release verification pending**.
