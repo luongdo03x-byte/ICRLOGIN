@@ -4,10 +4,11 @@ import {
   PHASE6_DESKTOP_CHANNELS,
   PHASE7_DESKTOP_CHANNELS,
   PHASE8_DESKTOP_CHANNELS,
+  PHASE10_DESKTOP_CHANNELS,
   type ApiEnvelope,
   type BackupMode,
   type BrowserDownloadProgressEvent,
-  type IcrDesktopApiV8,
+  type IcrDesktopApiV10,
   type ProfileCloneMode,
   type UpdateAppSettings
 } from '@icrlogin/shared';
@@ -15,7 +16,7 @@ import {
 export type DesktopInvoke=(channel:string,payload?:unknown)=>Promise<ApiEnvelope<unknown>>;
 export type DesktopSubscribe=(channel:string,listener:(payload:unknown)=>void)=>(()=>void);
 
-export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscribe):IcrDesktopApiV8{
+export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscribe):IcrDesktopApiV10{
   return Object.freeze({
     health:()=>invoke(DESKTOP_CHANNELS.health),
     profiles:Object.freeze({
@@ -32,6 +33,7 @@ export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscri
     phase5Profiles:Object.freeze({backup:(id:string,mode:BackupMode)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesBackup,{id,mode}),restoreBackup:()=>invoke(PHASE5_DESKTOP_CHANNELS.profilesRestoreBackup),exportConfig:(id:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesExportConfig,{id}),importConfig:(requestedName?:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesImportConfig,requestedName?{requestedName}:{}),listTrash:()=>invoke(PHASE5_DESKTOP_CHANNELS.profilesListTrash),restoreTrash:(id:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesRestoreTrash,{id}),permanentDelete:(id:string)=>invoke(PHASE5_DESKTOP_CHANNELS.profilesPermanentDelete,{id})}),
     monitoring:Object.freeze({snapshot:()=>invoke(PHASE6_DESKTOP_CHANNELS.monitoringSnapshot),recoveryStatus:()=>invoke(PHASE6_DESKTOP_CHANNELS.recoveryStatus)}),
     settings:Object.freeze({get:()=>invoke(PHASE7_DESKTOP_CHANNELS.settingsGet),update:(patch:UpdateAppSettings)=>invoke(PHASE7_DESKTOP_CHANNELS.settingsUpdate,patch)}),
-    updates:Object.freeze({status:()=>invoke(PHASE8_DESKTOP_CHANNELS.updateStatus),check:()=>invoke(PHASE8_DESKTOP_CHANNELS.updateCheck),download:()=>invoke(PHASE8_DESKTOP_CHANNELS.updateDownload)})
-  }) as unknown as IcrDesktopApiV8;
+    updates:Object.freeze({status:()=>invoke(PHASE8_DESKTOP_CHANNELS.updateStatus),check:()=>invoke(PHASE8_DESKTOP_CHANNELS.updateCheck),download:()=>invoke(PHASE8_DESKTOP_CHANNELS.updateDownload)}),
+    about:Object.freeze({get:()=>invoke(PHASE10_DESKTOP_CHANNELS.aboutGet)})
+  }) as unknown as IcrDesktopApiV10;
 }
