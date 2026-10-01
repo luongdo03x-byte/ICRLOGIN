@@ -16,7 +16,7 @@ interface NsisUpdaterLike {
 }
 
 export interface GenericUpdateOptions { provider: 'generic'; url: string; }
-export type NsisUpdaterFactory = (options: GenericUpdateOptions) => NsisUpdaterLike;
+export type NsisUpdaterFactory = (options?: GenericUpdateOptions) => NsisUpdaterLike;
 
 export interface CreateElectronUpdateAdapterOptions {
   isPackaged: boolean;
@@ -24,8 +24,8 @@ export interface CreateElectronUpdateAdapterOptions {
   updaterFactory?: NsisUpdaterFactory;
 }
 
-function parseFeedUrl(raw?: string): string | null {
-  const value = raw?.trim();
+function parseFeedUrl(raw: string): string | null {
+  const value = raw.trim();
   if (!value) return null;
   try {
     const url = new URL(value);
@@ -48,11 +48,16 @@ function safeNumber(value: unknown): number {
 
 export function createElectronUpdateAdapter(options: CreateElectronUpdateAdapterOptions): AppUpdateAdapter | null {
   if (!options.isPackaged) return null;
-  const feedUrl = parseFeedUrl(options.feedUrl);
-  if (!feedUrl) return null;
 
-  const factory: NsisUpdaterFactory = options.updaterFactory ?? ((publish) => new NsisUpdater(publish as any) as unknown as NsisUpdaterLike);
-  const updater = factory({ provider: 'generic', url: feedUrl });
+  let publish: GenericUpdateOptions | undefined;
+  if (options.feedUrl !== undefined) {
+    const feedUrl = parseFeedUrl(options.feedUrl);
+    if (!feedUrl) return null;
+    publish = { provider: 'generic', url: feedUrl };
+  }
+
+  const factory: NsisUpdaterFactory = options.updaterFactory ?? ((feed) => new NsisUpdater(feed as any) as unknown as NsisUpdaterLike);
+  const updater = factory(publish);
   updater.autoDownload = false;
   updater.autoInstallOnAppQuit = true;
   updater.allowPrerelease = false;
