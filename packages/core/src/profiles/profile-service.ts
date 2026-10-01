@@ -24,8 +24,8 @@ function invalidRequest(): AppError { return new AppError('INVALID_REQUEST', 'In
 export class ProfileService {
   private readonly idFactory: () => string;
   private readonly now: () => string;
-  private readonly browsers?: { getState(profileId: string): BrowserLifecycleState };
-  private readonly operationLock?: ProfileOperationLock;
+  private readonly browsers: { getState(profileId: string): BrowserLifecycleState } | undefined;
+  private readonly operationLock: ProfileOperationLock | undefined;
   constructor(private readonly repository: ProfileRepository, private readonly files: ProfileFiles, options: ProfileServiceOptions = {}) {
     this.idFactory = options.idFactory ?? randomUUID;
     this.now = options.now ?? (() => new Date().toISOString());
