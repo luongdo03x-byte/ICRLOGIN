@@ -11,8 +11,7 @@ import { ProfileRepository } from '../src/repositories/profile-repository.js';
 import { RuntimeSessionRepository } from '../src/repositories/runtime-session-repository.js';
 import {
   RuntimeReconciler,
-  type ProcessInspector,
-  type ProcessSnapshot
+  type ProcessInspector
 } from '../src/runtime/reconciler.js';
 import { createTempRoot, removeTempRoot } from './helpers/temp-root.js';
 
@@ -77,6 +76,10 @@ async function withReconciler(
   }
 }
 
+function matchingCommandLine(runtime: BrowserRuntimeInfo): string {
+  return `"${runtime.executablePath}" "--user-data-dir=${runtime.userDataDir}" --remote-debugging-address=127.0.0.1 --remote-debugging-port=${runtime.remoteDebuggingPort}`;
+}
+
 describe('runtime reconciler', () => {
   it('removes a stale session and profile lock when the PID no longer exists', async () => {
     await withReconciler(() => ({ inspect: async () => null }), async () => { throw new Error('CDP must not run'); }, async ({ reconciler, sessions, registry, lockPath }) => {
@@ -89,13 +92,9 @@ describe('runtime reconciler', () => {
     });
   });
 
-  it('re-registers a matching live process and valid CDP endpoint without changing pinned version', async () => {
+  it('re-registers only a matching live process and valid CDP endpoint without changing pinned version', async () => {
     await withReconciler(
-      (runtime) => ({ inspect: async (pid: number) => ({
-        pid,
-        executablePath: runtime.executablePath,
-        commandLine: `chrome.exe --user-data-dir=${runtime.userDataDir}`
-      }) }),
+      (runtime) => ({ inspect: async (pid: number) => ({ pid, executablePath: runtime.executablePath, commandLine: matchingCommandLine(runtime) }) }),
       async () => 'ws://127.0.0.1:43127/devtools/browser/live',
       async ({ reconciler, sessions, registry, runtime }) => {
         const report = await reconciler.reconcile();
@@ -120,6 +119,41 @@ describe('runtime reconciler', () => {
         expect(report.stale[0]).toBe(profile.id);
         expect(registry.list().length).toBe(0);
         expect(sessions.get(profile.id)).toBe(null);
+      }
+    );
+  });
+
+  it('rejects a similar user-data path instead of substring-matching another Chromium', async () => {
+    let cdpCalls = 0;
+    await withReconciler(
+      (runtime) => ({ inspect: async (pid: number) => ({
+        pid,
+        executablePath: runtime.executablePath,
+        commandLine: `"${runtime.executablePath}" "--user-data-dir=${runtime.userDataDir}-other" --remote-debugging-address=127.0.0.1 --remote-debugging-port=${runtime.remoteDebuggingPort}`
+      }) }),
+      async () => { cdpCalls += 1; return 'ws://should-not-run'; },
+      async ({ reconciler, sessions }) => {
+        const report = await reconciler.reconcile();
+        expect(report.stale).toEqual([profile.id]);
+        expect(cdpCalls).toBe(0);
+        expect(sessions.get(profile.id)).toBe(null);
+      }
+    );
+  });
+
+  it('rejects PID reuse when the remote debugging port argument does not match the stored session', async () => {
+    let cdpCalls = 0;
+    await withReconciler(
+      (runtime) => ({ inspect: async (pid: number) => ({
+        pid,
+        executablePath: runtime.executablePath,
+        commandLine: `"${runtime.executablePath}" "--user-data-dir=${runtime.userDataDir}" --remote-debugging-address=127.0.0.1 --remote-debugging-port=49999`
+      }) }),
+      async () => { cdpCalls += 1; return 'ws://should-not-run'; },
+      async ({ reconciler }) => {
+        const report = await reconciler.reconcile();
+        expect(report.stale).toEqual([profile.id]);
+        expect(cdpCalls).toBe(0);
       }
     );
   });
