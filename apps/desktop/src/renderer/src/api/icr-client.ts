@@ -8,6 +8,7 @@ async function call<T>(promise: Promise<ApiEnvelope<T>>): Promise<T> { return un
 
 export const icrClient = {
   health: () => call(window.icr.health()),
+  about: { get: () => call(window.icr.about.get()) },
   profiles: {
     list: () => call(window.icr.profiles.list()), get: (id: string) => call(window.icr.profiles.get(id)), create: (input: Parameters<typeof window.icr.profiles.create>[0]) => call(window.icr.profiles.create(input)), update: (id: string, input: Parameters<typeof window.icr.profiles.update>[1]) => call(window.icr.profiles.update(id, input)), delete: (id: string) => call(window.icr.profiles.delete(id)), restore: (id: string) => call(window.icr.profiles.restore(id)), start: (id: string) => call(window.icr.profiles.start(id)), stop: (id: string) => call(window.icr.profiles.stop(id)), clone: (sourceId: string, mode: Parameters<typeof window.icr.profiles.clone>[1], overrides?: Parameters<typeof window.icr.profiles.clone>[2]) => call(window.icr.profiles.clone(sourceId, mode, overrides))
   },
