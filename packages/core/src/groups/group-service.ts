@@ -30,7 +30,7 @@ function invalidGroup(message: string): AppError {
 export class GroupService {
   private readonly idFactory: () => string;
   private readonly now: () => string;
-  private readonly profileMutations?: GroupProfileMutations;
+  private readonly profileMutations: GroupProfileMutations | undefined;
 
   constructor(
     private readonly repository: GroupRepository,
