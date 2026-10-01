@@ -6,7 +6,7 @@ import { RecoveryPage } from '../recovery/RecoveryPage.js';
 import { buildSettingsPatch, settingsDraftRequiresRestart } from './settings-model.js';
 import { updateAction, updateStateLabel } from './update-model.js';
 
-type SettingsTab = 'general' | 'api' | 'updates' | 'recovery';
+type SettingsTab = 'general' | 'api' | 'updates' | 'recovery' | 'about';
 
 function formatUpdateBytes(value: number | null): string {
   if (value === null) return '—';
@@ -20,6 +20,7 @@ export function SettingsPage() {
   const [draft, setDraft] = useState<AppSettings | null>(null);
   const [message, setMessage] = useState('');
   const settings = useQuery({ queryKey: ['settings'], queryFn: icrClient.settings.get, staleTime: 30_000 });
+  const about = useQuery({ queryKey: ['about'], queryFn: icrClient.about.get, staleTime: Infinity });
   const updates = useQuery({
     queryKey: ['app-update'],
     queryFn: icrClient.updates.status,
@@ -58,7 +59,7 @@ export function SettingsPage() {
   const action = update ? updateAction(update) : null;
   return <div className="page-frame settings-page">
     <header className="page-header">
-      <div><p className="eyebrow">APPLICATION SETTINGS</p><h1>Settings</h1><p className="page-subtitle">Windows startup, desktop behavior, local API, updates and recovery controls.</p></div>
+      <div><p className="eyebrow">APPLICATION SETTINGS</p><h1>Settings</h1><p className="page-subtitle">Windows startup, desktop behavior, local API, updates, recovery and version readiness.</p></div>
       {(tab === 'general' || tab === 'api') && <div className="page-header-actions"><button className="btn primary" type="button" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>{save.isPending ? 'Saving…' : 'Save settings'}</button></div>}
     </header>
 
@@ -67,6 +68,7 @@ export function SettingsPage() {
       <button className={`btn ${tab === 'api' ? 'primary' : ''}`} onClick={() => setTab('api')}>Local API</button>
       <button className={`btn ${tab === 'updates' ? 'primary' : ''}`} onClick={() => setTab('updates')}>Updates</button>
       <button className={`btn ${tab === 'recovery' ? 'primary' : ''}`} onClick={() => setTab('recovery')}>Recovery & Monitoring</button>
+      <button className={`btn ${tab === 'about' ? 'primary' : ''}`} onClick={() => setTab('about')}>About</button>
     </div>
 
     {message && <div className="info-panel settings-message">{message}</div>}
@@ -89,5 +91,20 @@ export function SettingsPage() {
     </section></div>}
 
     {tab === 'recovery' && <div className="settings-recovery"><RecoveryPage /></div>}
+
+    {tab === 'about' && <div className="settings-grid"><section className="settings-card">
+      <div><h2>ICRLogin V1 readiness</h2><p className="muted">Public version matrix and startup readiness for this installed build.</p></div>
+      {about.isLoading ? <div className="table-loading">Loading build information…</div> : about.isError || !about.data ? <div className="form-error">Unable to read build information.</div> : <>
+        <div className="review-grid">
+          <div><span>ICRLogin</span><strong>{about.data.appVersion}</strong></div>
+          <div><span>Build</span><strong>{about.data.packaged ? 'Packaged' : 'Development'}</strong></div>
+          <div><span>Local API</span><strong>v{about.data.localApiVersion}</strong></div>
+          <div><span>Database schema</span><strong>v{about.data.databaseSchemaVersion}</strong></div>
+          <div><span>Backup format</span><strong>v{about.data.backupFormatVersion}</strong></div>
+          <div><span>Runtime readiness</span><strong>{about.data.runtimeReadiness === 'operational' ? 'Operational' : 'Recovery required'}</strong></div>
+        </div>
+        {!about.data.databaseHealthy && <div className="settings-restart-note">SQLite integrity requires recovery. Operational profile/browser APIs remain disabled until the database is healthy.</div>}
+      </>}
+    </section></div>}
   </div>;
 }
