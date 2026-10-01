@@ -2,7 +2,20 @@
 
 ICRLogin is a Windows-first, local-first Chromium profile manager and automation foundation.
 
-Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow. Phase 6 adds redacted structured logging primitives, managed Chromium CPU/RAM monitoring, SQLite startup integrity checks, database-aware crash staging recovery, and a recovery-only degraded mode when database integrity fails. Phase 7 adds versioned persistent settings, launch-with-Windows, safe close behavior, configurable localhost API port and advanced Browser Manager refresh/uninstall controls. Phase 8 adds Windows x64 NSIS packaging, code-signing-aware release automation, typed application-update status/check/download controls and safe install-on-normal-quit behavior. Phase 9 adds single-instance ownership, system tray behavior, strict renderer security gates, exact runtime reconciliation identity, migration fixtures and packaged Windows Electron smoke coverage.
+Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow. Phase 6 adds redacted structured logging primitives, managed Chromium CPU/RAM monitoring, SQLite startup integrity checks, database-aware crash staging recovery, and a recovery-only degraded mode when database integrity fails. Phase 7 adds versioned persistent settings, launch-with-Windows, safe close behavior, configurable localhost API port and advanced Browser Manager refresh/uninstall controls. Phase 8 adds Windows x64 NSIS packaging, code-signing-aware release automation, typed application-update status/check/download controls and safe install-on-normal-quit behavior. Phase 9 adds single-instance ownership, system tray behavior, strict renderer security gates, exact runtime reconciliation identity, migration fixtures and packaged Windows Electron smoke coverage. Phase 10 adds the public V1 version/readiness matrix, release-version parity checks, a complete signed-release gate and the final V1 release-evidence checklist.
+
+## V1 implementation status
+
+The V1 **source implementation is complete** across the approved Phase 1–10 scope. Settings → About reports the independent public compatibility matrix:
+
+```text
+ICRLogin app: package version
+Local API: v1
+Database schema: v4
+Backup format: v1
+```
+
+Production Windows release verification is a separate state. During implementation, GitHub Actions repeatedly created CI/Windows jobs without assigning a hosted runner (`runner_id=0`, empty/null step arrays), so those failed jobs did not execute checkout, tests, packaging or smoke commands. A build should only be described as fully release-verified after the Windows/signing/update checks in [`docs/development/v1-release-checklist.md`](docs/development/v1-release-checklist.md) run successfully.
 
 ## Local automation API
 
@@ -44,15 +57,24 @@ npm run test:desktop:packaged
 npm run package:win
 ```
 
-Tagged production releases require `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` GitHub Actions secrets and enforce Windows code signing before publishing the installer, blockmap and `latest.yml` to a GitHub Release.
+Tagged production releases require `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` GitHub Actions secrets. The release workflow now gates publication on release parity, typecheck, all workspace tests, lint, real Chromium/CDP automation, unpacked packaging, packaged Electron smoke, signing and Authenticode verification.
 
-## Windows hardening
+## Windows hardening and release parity
 
 Runtime reconciliation reattaches only when the persisted PID, exact executable, exact user-data argument, loopback debugging address/port and live CDP endpoint agree. Mismatched/stale metadata is removed without killing the observed process.
 
-The dedicated Windows hardening workflow includes unit/integration/API/migration/recovery tests, real Chromium/CDP automation, unpacked packaging and packaged Electron shell smoke. Renderer CSP and Electron sandbox flags are pinned by security regression tests.
+Run the V1 source/release-contract checks with:
 
-See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md), [`docs/development/phase-8-installer-auto-update.md`](docs/development/phase-8-installer-auto-update.md), and [`docs/development/phase-9-windows-hardening-e2e.md`](docs/development/phase-9-windows-hardening-e2e.md).
+```powershell
+npm run verify:release-parity
+npm run typecheck
+npm test
+npm run lint
+```
+
+The dedicated Windows hardening workflow additionally runs real Chromium/CDP automation and packaged Electron smoke. The tagged release workflow runs the full gate before signing and publishing.
+
+See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md), [`docs/development/phase-8-installer-auto-update.md`](docs/development/phase-8-installer-auto-update.md), [`docs/development/phase-9-windows-hardening-e2e.md`](docs/development/phase-9-windows-hardening-e2e.md), [`docs/development/phase-10-v1-polish-release-parity.md`](docs/development/phase-10-v1-polish-release-parity.md), and the final [`V1 release checklist`](docs/development/v1-release-checklist.md).
 
 ## Development
 
@@ -60,6 +82,7 @@ Prerequisites: Windows 10/11 x64 for production smoke testing, Node.js 22+, and 
 
 ```powershell
 npm install
+npm run verify:release-parity
 npm run lint
 npm run typecheck
 npm test
@@ -68,6 +91,4 @@ npm run build -w @icrlogin/desktop
 npm run dev -w @icrlogin/desktop
 ```
 
-Developer details are documented in [`docs/development/phase-1-core.md`](docs/development/phase-1-core.md), [`docs/development/phase-2-desktop-ui.md`](docs/development/phase-2-desktop-ui.md), [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md), [`docs/development/phase-4-profile-ops-extensions.md`](docs/development/phase-4-profile-ops-extensions.md), [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md), [`docs/development/phase-8-installer-auto-update.md`](docs/development/phase-8-installer-auto-update.md), and [`docs/development/phase-9-windows-hardening-e2e.md`](docs/development/phase-9-windows-hardening-e2e.md).
-
-The approved design and implementation plans are under [`docs/superpowers/`](docs/superpowers/).
+Developer details are documented under [`docs/development/`](docs/development/). The approved design and implementation plans are under [`docs/superpowers/`](docs/superpowers/).
