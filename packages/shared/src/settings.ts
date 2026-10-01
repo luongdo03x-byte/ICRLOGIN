@@ -3,7 +3,7 @@ import { HttpPortSchema } from './http-api.js';
 
 export const APP_SETTINGS_SCHEMA_VERSION = 1 as const;
 
-export const CloseBehaviorSchema = z.enum(['ask', 'quit']);
+export const CloseBehaviorSchema = z.enum(['ask', 'quit', 'tray']);
 export type CloseBehavior = z.infer<typeof CloseBehaviorSchema>;
 
 export const AppSettingsSchema = z.object({
