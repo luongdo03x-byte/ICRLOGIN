@@ -17,14 +17,16 @@ describe('electron update adapter', () => {
   it('uses embedded app-update.yml in packaged builds and rejects unsafe runtime overrides', () => {
     expect(createElectronUpdateAdapter({ isPackaged: false, feedUrl: undefined })).toBeNull();
 
-    const embedded = new FakeUpdater();
-    const embeddedCalls: any[] = [];
-    expect(createElectronUpdateAdapter({
-      isPackaged: true,
-      feedUrl: undefined,
-      updaterFactory: (options) => { embeddedCalls.push(options); return embedded as any; }
-    })).not.toBeNull();
-    expect(embeddedCalls).toEqual([undefined]);
+    for (const feedUrl of [undefined, '   ']) {
+      const embedded = new FakeUpdater();
+      const embeddedCalls: any[] = [];
+      expect(createElectronUpdateAdapter({
+        isPackaged: true,
+        feedUrl,
+        updaterFactory: (options) => { embeddedCalls.push(options); return embedded as any; }
+      })).not.toBeNull();
+      expect(embeddedCalls).toEqual([undefined]);
+    }
 
     expect(createElectronUpdateAdapter({ isPackaged: true, feedUrl: 'http://updates.example/app' })).toBeNull();
     expect(createElectronUpdateAdapter({ isPackaged: true, feedUrl: 'https://user:pass@updates.example/app' })).toBeNull();
