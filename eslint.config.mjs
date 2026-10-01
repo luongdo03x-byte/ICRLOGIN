@@ -2,11 +2,25 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['node_modules/**', 'dist/**', '.worktrees/**', '.superpowers/**'] },
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/out/**',
+      '.worktrees/**',
+      '.superpowers/**'
+    ]
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.ts', '**/*.tsx'],
-    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } }
+    files: ['tools/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        document: 'readonly'
+      }
+    }
   }
 );
