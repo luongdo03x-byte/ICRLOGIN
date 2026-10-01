@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
-import { literalTranslations, translateLiteral, type Locale } from './i18n.js';
+import { translateLiteral, type Locale } from './i18n.js';
 import { useI18n } from './react.js';
 
-const reverseLiterals = new Map<string, string>(Object.entries(literalTranslations).map(([english, vietnamese]) => [vietnamese, english]));
 const translatedAttributes = ['aria-label', 'placeholder', 'title'] as const;
 const staticOptionValues = new Set([
   '', 'all', 'running', 'stopped', 'error', 'ungrouped', 'with', 'without', 'lastUsed', 'name', 'browser',
@@ -10,12 +9,19 @@ const staticOptionValues = new Set([
   'available', 'installed', 'vi', 'en'
 ]);
 
-function localizeValue(locale: Locale, value: string): string {
-  const match = value.match(/^(\s*)(.*?)(\s*)$/s);
-  if (!match) return value;
+interface RenderedValueState {
+  source: string;
+  rendered: string;
+}
+
+const textStates = new WeakMap<Text, RenderedValueState>();
+const attributeStates = new WeakMap<Element, Map<string, RenderedValueState>>();
+
+function localizeSourceValue(locale: Locale, sourceValue: string): string {
+  const match = sourceValue.match(/^(\s*)(.*?)(\s*)$/s);
+  if (!match) return sourceValue;
   const [, leading, core, trailing] = match;
-  const english = literalTranslations[core] !== undefined ? core : reverseLiterals.get(core) ?? core;
-  const localized = locale === 'vi' ? translateLiteral('vi', english) : english;
+  const localized = locale === 'vi' ? translateLiteral('vi', core) : core;
   return `${leading}${localized}${trailing}`;
 }
 
@@ -35,18 +41,37 @@ function isLikelyUserData(node: Text): boolean {
 
 function localizeTextNode(node: Text, locale: Locale): void {
   if (isLikelyUserData(node)) return;
+
   const current = node.data;
-  const next = localizeValue(locale, current);
+  const previous = textStates.get(node);
+  const source = !previous || current !== previous.rendered ? current : previous.source;
+  const next = localizeSourceValue(locale, source);
+
+  textStates.set(node, { source, rendered: next });
   if (next !== current) node.data = next;
 }
 
-function localizeElement(element: Element, locale: Locale): void {
-  for (const attribute of translatedAttributes) {
-    const value = element.getAttribute(attribute);
-    if (!value) continue;
-    const next = localizeValue(locale, value);
-    if (next !== value) element.setAttribute(attribute, next);
+function localizeAttribute(element: Element, attribute: typeof translatedAttributes[number], locale: Locale): void {
+  const current = element.getAttribute(attribute);
+  if (!current) return;
+
+  let states = attributeStates.get(element);
+  if (!states) {
+    states = new Map<string, RenderedValueState>();
+    attributeStates.set(element, states);
   }
+
+  const previous = states.get(attribute);
+  const source = !previous || current !== previous.rendered ? current : previous.source;
+  const next = localizeSourceValue(locale, source);
+
+  states.set(attribute, { source, rendered: next });
+  if (next !== current) element.setAttribute(attribute, next);
+}
+
+function localizeElement(element: Element, locale: Locale): void {
+  for (const attribute of translatedAttributes) localizeAttribute(element, attribute, locale);
+
   for (const child of Array.from(element.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) localizeTextNode(child as Text, locale);
     else if (child.nodeType === Node.ELEMENT_NODE) localizeElement(child as Element, locale);
