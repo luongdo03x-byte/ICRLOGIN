@@ -4,18 +4,18 @@ import { acquireSingleInstance } from '../src/main/single-instance.js';
 describe('single instance ownership', () => {
   it('quits the secondary process before bootstrap ownership', () => {
     const quit = vi.fn();
-    const app = { requestSingleInstanceLock: () => false, on: vi.fn(), quit };
-    expect(acquireSingleInstance(app, () => null)).toBe(false);
+    const coordinator = { requestLock: () => false, registerSecondInstance: vi.fn(), quit };
+    expect(acquireSingleInstance(coordinator, () => null)).toBe(false);
     expect(quit).toHaveBeenCalledOnce();
-    expect(app.on).not.toHaveBeenCalled();
+    expect(coordinator.registerSecondInstance).not.toHaveBeenCalled();
   });
 
   it('shows and focuses the existing window when a second instance starts', () => {
     let secondInstance: (() => void) | null = null;
-    const app = {
-      requestSingleInstanceLock: () => true,
+    const coordinator = {
+      requestLock: () => true,
       quit: vi.fn(),
-      on: vi.fn((event: string, listener: () => void) => { if (event === 'second-instance') secondInstance = listener; })
+      registerSecondInstance: vi.fn((listener: () => void) => { secondInstance = listener; })
     };
     const window = {
       isDestroyed: () => false,
@@ -24,10 +24,10 @@ describe('single instance ownership', () => {
       show: vi.fn(),
       focus: vi.fn()
     };
-    expect(acquireSingleInstance(app, () => window)).toBe(true);
+    expect(acquireSingleInstance(coordinator, () => window)).toBe(true);
     secondInstance?.();
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
-    expect(app.quit).not.toHaveBeenCalled();
+    expect(coordinator.quit).not.toHaveBeenCalled();
   });
 });
