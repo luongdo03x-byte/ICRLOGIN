@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createAppServices } from '../src/main/app-services.js';
 import { resolveBrowserManifestSettings } from '../src/main/config.js';
@@ -49,12 +50,8 @@ describe('createAppServices', () => {
     const paths = { configDir: 'R/config' } as any;
     expect(resolveBrowserManifestSettings(paths, ' https://updates.example/manifest.json ')).toEqual({
       manifestUrl: 'https://updates.example/manifest.json',
-      cachePath: joinPortable('R/config', 'browser-manifest-win64.json')
+      cachePath: join('R/config', 'browser-manifest-win64.json')
     });
     expect(resolveBrowserManifestSettings(paths, '   ').manifestUrl).toBe(null);
   });
 });
-
-function joinPortable(left: string, right: string): string {
-  return `${left}/${right}`.replace(/\\/g, '/');
-}
