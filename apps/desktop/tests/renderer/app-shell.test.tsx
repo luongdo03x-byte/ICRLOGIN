@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import './setup.js';
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppShell } from '../../src/renderer/src/components/AppShell.js';
