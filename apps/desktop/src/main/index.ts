@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
 import {
+  AppSettingsStore,
   DatabaseBackupService,
   ensureAppPaths,
   HttpBrowserArtifactProvider,
@@ -26,7 +27,9 @@ import {
 import { registerIpcHandlers } from './ipc.js';
 import { registerPhase5IpcHandlers } from './ipc-phase5.js';
 import { registerPhase6IpcHandlers } from './ipc-phase6.js';
+import { registerPhase7IpcHandlers } from './ipc-phase7.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
+import { shouldPromptBeforeClose } from './window-close-policy.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
 import { WindowsProcessMetricsReader } from './windows-process-metrics.js';
 
@@ -39,6 +42,11 @@ async function bootstrap(): Promise<void> {
   );
 
   await app.whenReady();
+
+  const settingsStore = new AppSettingsStore(paths);
+  const bootSettings = await settingsStore.read();
+  try { app.setLoginItemSettings({ openAtLogin: bootSettings.launchAtLogin }); }
+  catch { /* Settings UI can retry; startup remains usable. */ }
 
   const db = openDatabase(join(paths.dataDir, 'icrlogin.db'));
   const startupRecovery = await new StartupRecoveryService({ db, paths }).run();
@@ -91,7 +99,7 @@ async function bootstrap(): Promise<void> {
     });
 
     try {
-      const apiSettings = resolveLocalApiSettings(process.env, paths);
+      const apiSettings = resolveLocalApiSettings(process.env, paths, bootSettings.localApiPort);
       const tokenStore = new EncryptedApiTokenStore(apiSettings.tokenFile, secretStore);
       const bearerToken = await resolveApiToken(process.env, tokenStore);
       apiServer = new LocalApiServer({
@@ -108,6 +116,11 @@ async function bootstrap(): Promise<void> {
   }
 
   registerPhase6IpcHandlers(ipcMain, services, startupRecovery);
+  registerPhase7IpcHandlers(ipcMain, {
+    settings: settingsStore,
+    setLaunchAtLogin: (enabled) => app.setLoginItemSettings({ openAtLogin: enabled }),
+    browserVersions: services?.browserVersions ?? null
+  });
 
   const mainDir = moduleDirectory(import.meta.url);
   const window = new BrowserWindow(createSecureWindowOptions(join(mainDir, '../preload/index.js')));
@@ -116,6 +129,37 @@ async function bootstrap(): Promise<void> {
   else await window.loadFile(join(mainDir, '../renderer/index.html'));
 
   let shutdownStarted = false;
+  let closeFlowStarted = false;
+  let closeApproved = false;
+  window.on('close', (event) => {
+    if (shutdownStarted || closeApproved) return;
+    event.preventDefault();
+    if (closeFlowStarted) return;
+    closeFlowStarted = true;
+    void (async () => {
+      const currentSettings = await settingsStore.read();
+      const runningRuntimeCount = services?.registry.list().length ?? 0;
+      if (shouldPromptBeforeClose(currentSettings.closeBehavior, runningRuntimeCount)) {
+        const answer = await dialog.showMessageBox(window, {
+          type: 'warning',
+          title: 'Running browser profiles',
+          message: `${runningRuntimeCount} managed Chromium profile${runningRuntimeCount === 1 ? ' is' : 's are'} still running.`,
+          detail: 'Quitting ICRLogin will leave those Chromium processes running. They can be reconciled the next time ICRLogin starts.',
+          buttons: ['Cancel', 'Quit ICRLogin'],
+          defaultId: 0,
+          cancelId: 0,
+          noLink: true
+        });
+        if (answer.response !== 1) {
+          closeFlowStarted = false;
+          return;
+        }
+      }
+      closeApproved = true;
+      window.close();
+    })().catch(() => { closeFlowStarted = false; });
+  });
+
   app.on('before-quit', (event) => {
     if (shutdownStarted) return;
     event.preventDefault();
