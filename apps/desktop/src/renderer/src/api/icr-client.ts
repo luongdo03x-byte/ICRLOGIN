@@ -43,6 +43,10 @@ export const icrClient = {
     snapshot: () => call(window.icr.monitoring.snapshot()),
     recoveryStatus: () => call(window.icr.monitoring.recoveryStatus())
   },
+  settings: {
+    get: () => call(window.icr.settings.get()),
+    update: (patch: Parameters<typeof window.icr.settings.update>[0]) => call(window.icr.settings.update(patch))
+  },
   groups: {
     list: () => call(window.icr.groups.list()),
     create: (input: Parameters<typeof window.icr.groups.create>[0]) => call(window.icr.groups.create(input)),
@@ -94,6 +98,7 @@ export const icrClient = {
     available: () => call(window.icr.browsers.available()),
     installed: () => call(window.icr.browsers.installed()),
     download: (version: string) => call(window.icr.browsers.download(version)),
+    remove: (version: string) => call(window.icr.browsers.remove(version)),
     onDownloadProgress: window.icr.browsers.onDownloadProgress
   }
 } as const;
