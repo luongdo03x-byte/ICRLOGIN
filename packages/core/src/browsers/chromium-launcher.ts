@@ -18,7 +18,7 @@ export interface SpawnOptions {
 }
 
 export interface SpawnedProcessLike {
-  pid?: number;
+  pid?: number | undefined;
   once(event: 'exit', listener: (code: number | null, signal: string | null) => void): this;
   kill(signal?: string): boolean;
 }
@@ -97,12 +97,13 @@ export class ChromiumLauncher {
       throw new AppError('BROWSER_START_FAILED', 'Chromium process did not expose a PID');
     }
 
+    const pid = child.pid;
     const thisForceTerminate = this.forceTerminateProcess;
     return {
-      pid: child.pid,
+      pid,
       onExit(listener) { child.once('exit', listener); },
       async requestClose() { child.kill(); },
-      async forceTerminate() { await thisForceTerminate(child.pid as number, child); }
+      async forceTerminate() { await thisForceTerminate(pid, child); }
     };
   }
 }
