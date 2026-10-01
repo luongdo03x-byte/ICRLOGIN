@@ -14,6 +14,7 @@ import {
   waitForCdp
 } from '@icrlogin/core';
 import { AppError } from '@icrlogin/shared';
+import { AppUpdateService } from './app-update-service.js';
 import { EncryptedApiTokenStore, resolveApiToken } from './api-token-store.js';
 import { createAppServices, type AppServices } from './app-services.js';
 import {
@@ -24,10 +25,12 @@ import {
   resolveBrowserManifestSettings,
   resolveLocalApiSettings
 } from './config.js';
+import { createElectronUpdateAdapter } from './electron-update-adapter.js';
 import { registerIpcHandlers } from './ipc.js';
 import { registerPhase5IpcHandlers } from './ipc-phase5.js';
 import { registerPhase6IpcHandlers } from './ipc-phase6.js';
 import { registerPhase7IpcHandlers } from './ipc-phase7.js';
+import { registerPhase8IpcHandlers } from './ipc-phase8.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
 import { shouldPromptBeforeClose } from './window-close-policy.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
@@ -35,13 +38,15 @@ import { WindowsProcessMetricsReader } from './windows-process-metrics.js';
 
 async function bootstrap(): Promise<void> {
   const localBase = process.env.LOCALAPPDATA ?? app.getPath('appData');
-  const { dataRoot, paths } = await prepareUserDataRoot(
-    localBase,
-    ensureAppPaths,
-    (name, path) => app.setPath(name, path)
-  );
+  const { dataRoot, paths } = await prepareUserDataRoot(localBase, ensureAppPaths, (name, path) => app.setPath(name, path));
 
   await app.whenReady();
+
+  const updates = new AppUpdateService(createElectronUpdateAdapter({
+    isPackaged: app.isPackaged,
+    feedUrl: process.env.ICRLOGIN_UPDATE_URL
+  }), app.getVersion());
+  registerPhase8IpcHandlers(ipcMain, updates);
 
   const settingsStore = new AppSettingsStore(paths);
   const bootSettings = await settingsStore.read();
@@ -63,13 +68,7 @@ async function bootstrap(): Promise<void> {
       ? new HttpBrowserArtifactProvider(manifestSettings.manifestUrl, manifestSettings.cachePath)
       : new JsonFileBrowserArtifactProvider(manifestSettings.cachePath);
 
-    services = createAppServices({
-      db,
-      paths,
-      secretStore,
-      browserArtifactProvider,
-      processMetricsReader: new WindowsProcessMetricsReader()
-    });
+    services = createAppServices({ db, paths, secretStore, browserArtifactProvider, processMetricsReader: new WindowsProcessMetricsReader() });
 
     const reconciler = new RuntimeReconciler({
       runtimeSessions: services.runtimeSessions,
@@ -102,11 +101,7 @@ async function bootstrap(): Promise<void> {
       const apiSettings = resolveLocalApiSettings(process.env, paths, bootSettings.localApiPort);
       const tokenStore = new EncryptedApiTokenStore(apiSettings.tokenFile, secretStore);
       const bearerToken = await resolveApiToken(process.env, tokenStore);
-      apiServer = new LocalApiServer({
-        port: apiSettings.port,
-        services,
-        ...(bearerToken ? { bearerToken } : {})
-      });
+      apiServer = new LocalApiServer({ port: apiSettings.port, services, ...(bearerToken ? { bearerToken } : {}) });
       await apiServer.start();
     } catch (error) {
       const code = error instanceof AppError ? error.code : 'INTERNAL_ERROR';
@@ -145,15 +140,9 @@ async function bootstrap(): Promise<void> {
           title: 'Running browser profiles',
           message: `${runningRuntimeCount} managed Chromium profile${runningRuntimeCount === 1 ? ' is' : 's are'} still running.`,
           detail: 'Quitting ICRLogin will leave those Chromium processes running. They can be reconciled the next time ICRLogin starts.',
-          buttons: ['Cancel', 'Quit ICRLogin'],
-          defaultId: 0,
-          cancelId: 0,
-          noLink: true
+          buttons: ['Cancel', 'Quit ICRLogin'], defaultId: 0, cancelId: 0, noLink: true
         });
-        if (answer.response !== 1) {
-          closeFlowStarted = false;
-          return;
-        }
+        if (answer.response !== 1) { closeFlowStarted = false; return; }
       }
       closeApproved = true;
       window.close();
@@ -166,14 +155,10 @@ async function bootstrap(): Promise<void> {
     shutdownStarted = true;
     void (async () => {
       services?.monitoring.stop();
-      try {
-        await apiServer?.stop();
-      } catch {
-        // Shutdown remains best-effort; never log tokens or internal paths.
-      } finally {
-        db.close();
-        app.quit();
-      }
+      updates.dispose();
+      try { await apiServer?.stop(); }
+      catch { /* Shutdown remains best-effort; never log tokens or internal paths. */ }
+      finally { db.close(); app.quit(); }
     })();
   });
 }
