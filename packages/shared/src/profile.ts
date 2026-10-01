@@ -42,25 +42,8 @@ export const UpdateProfileInputSchema = z.object({
   description: z.string().max(2000).nullable().optional()
 });
 
-export interface CreateProfileInput {
-  name: string;
-  browserVersion: string;
-  groupId?: string | null;
-  proxyId?: string | null;
-  userAgent?: string | null;
-  language?: string;
-  timezone?: string;
-  windowWidth?: number;
-  windowHeight?: number;
-  screenWidth?: number;
-  screenHeight?: number;
-  webrtcEnabled?: boolean;
-  geolocationMode?: GeolocationMode;
-  startupUrls?: string[];
-  description?: string | null;
-}
-
-export type UpdateProfileInput = Partial<CreateProfileInput>;
+export type CreateProfileInput = z.infer<typeof CreateProfileInputSchema>;
+export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;
 
 export interface Profile {
   id: string;
