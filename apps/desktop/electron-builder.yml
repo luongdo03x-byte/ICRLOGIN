@@ -1,0 +1,22 @@
+appId: com.icrlogin.desktop
+productName: ICRLogin
+asar: true
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ICRLogin-${version}-Setup-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ICRLogin
