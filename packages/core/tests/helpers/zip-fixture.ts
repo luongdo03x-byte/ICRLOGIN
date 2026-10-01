@@ -59,7 +59,7 @@ export async function writeStoredZip(path: string, entries: ZipFixtureEntry[]): 
     central.writeUInt16LE(0, 32);
     central.writeUInt16LE(0, 34);
     central.writeUInt16LE(0, 36);
-    central.writeUInt32LE(entry.externalFileAttributes ?? 0, 38);
+    central.writeUInt32LE((entry.externalFileAttributes ?? 0) >>> 0, 38);
     central.writeUInt32LE(localOffset, 42);
     Buffer.from(name).copy(central, 46);
     centralParts.push(central);
