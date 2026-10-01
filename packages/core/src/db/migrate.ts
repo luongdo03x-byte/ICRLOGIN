@@ -13,7 +13,11 @@ export interface MigrationOptions {
   beforeMigration?: () => Promise<void> | void;
 }
 
+export const CURRENT_DB_SCHEMA_VERSION = 4 as const;
 const MIGRATIONS: readonly Migration[] = [migration001, migration002, migration003, migration004];
+if (MIGRATIONS[MIGRATIONS.length - 1]?.version !== CURRENT_DB_SCHEMA_VERSION) {
+  throw new Error('CURRENT_DB_SCHEMA_VERSION must match the latest migration');
+}
 
 export async function runMigrations(db: Database, options: MigrationOptions = {}): Promise<void> {
   db.exec(`
