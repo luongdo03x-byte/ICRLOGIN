@@ -32,10 +32,13 @@ import { registerPhase6IpcHandlers } from './ipc-phase6.js';
 import { registerPhase7IpcHandlers } from './ipc-phase7.js';
 import { registerPhase8IpcHandlers } from './ipc-phase8.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
+import { acquireSingleInstance } from './single-instance.js';
 import { bindTray, createTrayMenuTemplate, showAndFocusMainWindow } from './tray-controller.js';
 import { resolveWindowCloseAction } from './window-close-policy.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
 import { WindowsProcessMetricsReader } from './windows-process-metrics.js';
+
+let mainWindow: BrowserWindow | null = null;
 
 async function bootstrap(): Promise<void> {
   const localBase = process.env.LOCALAPPDATA ?? app.getPath('appData');
@@ -120,6 +123,8 @@ async function bootstrap(): Promise<void> {
 
   const mainDir = moduleDirectory(import.meta.url);
   const window = new BrowserWindow(createSecureWindowOptions(join(mainDir, '../preload/index.js')));
+  mainWindow = window;
+  window.on('closed', () => { if (mainWindow === window) mainWindow = null; });
   const devUrl = process.env.ELECTRON_RENDERER_URL;
   if (devUrl) await window.loadURL(devUrl);
   else await window.loadFile(join(mainDir, '../renderer/index.html'));
@@ -183,5 +188,5 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-void bootstrap();
+if (acquireSingleInstance(app, () => mainWindow)) void bootstrap();
 app.on('window-all-closed', () => app.quit());
