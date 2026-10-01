@@ -7,6 +7,7 @@
   "scripts": {
     "test": "vitest run",
     "build": "electron-vite build",
+    "predev": "electron-builder install-app-deps",
     "dev": "electron-vite dev",
     "package:dir": "npm run build && electron-builder --dir --win --x64 --publish never",
     "package:win": "npm run build && electron-builder --win nsis --x64 --publish never",
@@ -17,7 +18,7 @@
     "@icrlogin/shared": "0.1.0",
     "@tanstack/react-query": "^5.90.2",
     "better-sqlite3": "^12.4.1",
-    "electron": "^38.1.2",
+    "electron": "38.1.2",
     "electron-updater": "^6.8.10",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
