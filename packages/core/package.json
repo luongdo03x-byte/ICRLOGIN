@@ -5,7 +5,9 @@
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
-    "test": "vitest run",
+    "pretest": "npm rebuild better-sqlite3",
+    "test": "vitest run --exclude tests/chromium.integration.test.ts --exclude tests/local-api.chromium.integration.test.ts",
+    "pretest:integration:chromium": "npm rebuild better-sqlite3",
     "test:integration:chromium": "vitest run tests/chromium.integration.test.ts tests/local-api.chromium.integration.test.ts"
   },
   "dependencies": {
