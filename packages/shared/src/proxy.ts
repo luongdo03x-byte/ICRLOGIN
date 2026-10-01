@@ -14,16 +14,8 @@ export const CreateProxyInputSchema = z.object({
 
 export const UpdateProxyInputSchema = CreateProxyInputSchema.partial();
 
-export interface CreateProxyInput {
-  name: string;
-  type: ProxyType;
-  host: string;
-  port: number;
-  username?: string | null;
-  password?: string | null;
-}
-
-export type UpdateProxyInput = Partial<CreateProxyInput>;
+export type CreateProxyInput = z.infer<typeof CreateProxyInputSchema>;
+export type UpdateProxyInput = z.infer<typeof UpdateProxyInputSchema>;
 
 export interface Proxy {
   id: string;
