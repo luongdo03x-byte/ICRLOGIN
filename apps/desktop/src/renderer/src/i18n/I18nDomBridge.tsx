@@ -20,7 +20,9 @@ const attributeStates = new WeakMap<Element, Map<string, RenderedValueState>>();
 function localizeSourceValue(locale: Locale, sourceValue: string): string {
   const match = sourceValue.match(/^(\s*)(.*?)(\s*)$/s);
   if (!match) return sourceValue;
-  const [, leading, core, trailing] = match;
+  const leading = match[1] ?? '';
+  const core = match[2] ?? '';
+  const trailing = match[3] ?? '';
   const localized = locale === 'vi' ? translateLiteral('vi', core) : core;
   return `${leading}${localized}${trailing}`;
 }
