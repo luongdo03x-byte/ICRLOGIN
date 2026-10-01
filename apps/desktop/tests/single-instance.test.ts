@@ -11,11 +11,11 @@ describe('single instance ownership', () => {
   });
 
   it('shows and focuses the existing window when a second instance starts', () => {
-    let secondInstance: (() => void) | null = null;
+    const secondInstance = { current: null as (() => void) | null };
     const coordinator = {
       requestLock: () => true,
       quit: vi.fn(),
-      registerSecondInstance: vi.fn((listener: () => void) => { secondInstance = listener; })
+      registerSecondInstance: vi.fn((listener: () => void) => { secondInstance.current = listener; })
     };
     const window = {
       isDestroyed: () => false,
@@ -25,7 +25,7 @@ describe('single instance ownership', () => {
       focus: vi.fn()
     };
     expect(acquireSingleInstance(coordinator, () => window)).toBe(true);
-    secondInstance?.();
+    secondInstance.current?.();
     expect(window.show).toHaveBeenCalledOnce();
     expect(window.focus).toHaveBeenCalledOnce();
     expect(coordinator.quit).not.toHaveBeenCalled();
