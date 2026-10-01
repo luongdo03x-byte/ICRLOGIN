@@ -1,17 +1,17 @@
 import { showAndFocusMainWindow, type MainWindowPort } from './tray-controller.js';
 
-export interface SingleInstanceAppPort {
-  requestSingleInstanceLock(): boolean;
-  on(event: 'second-instance', listener: () => void): unknown;
+export interface SingleInstanceCoordinator {
+  requestLock(): boolean;
+  registerSecondInstance(listener: () => void): void;
   quit(): void;
 }
 
-export function acquireSingleInstance(app: SingleInstanceAppPort, getWindow: () => MainWindowPort | null): boolean {
-  if (!app.requestSingleInstanceLock()) {
-    app.quit();
+export function acquireSingleInstance(coordinator: SingleInstanceCoordinator, getWindow: () => MainWindowPort | null): boolean {
+  if (!coordinator.requestLock()) {
+    coordinator.quit();
     return false;
   }
-  app.on('second-instance', () => {
+  coordinator.registerSecondInstance(() => {
     showAndFocusMainWindow(getWindow());
   });
   return true;
