@@ -2,7 +2,7 @@
 
 ICRLogin is a Windows-first, local-first Chromium profile manager and automation foundation.
 
-Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow. Phase 6 adds redacted structured logging primitives, managed Chromium CPU/RAM monitoring, SQLite startup integrity checks, database-aware crash staging recovery, and a recovery-only degraded mode when database integrity fails.
+Phase 1 provides the core profile/database/proxy/browser lifecycle, localhost CDP runtime management, restart reconciliation, and hardened Electron foundation. Phase 2 adds the usable desktop workflow for Profiles, Groups, Proxy Manager and Browser Manager through a typed allowlisted IPC bridge. Phase 3 adds the localhost-only `/api/v1` automation API, optional encrypted bearer authentication, profile/group/proxy/browser/process resources, and CDP attach data for Playwright/Puppeteer/Selenium. Phase 4 adds tags, clean/full profile cloning, reusable templates, bounded bulk operations, and local unpacked/CRX extension management with profile/group assignment and Chromium launch integration. Phase 5 adds checksum-verified profile backup/restore, config-only import/export, Trash/permanent delete, SQLite safety backups and a typed desktop recovery workflow. Phase 6 adds redacted structured logging primitives, managed Chromium CPU/RAM monitoring, SQLite startup integrity checks, database-aware crash staging recovery, and a recovery-only degraded mode when database integrity fails. Phase 7 adds versioned persistent settings, launch-with-Windows, safe close behavior, configurable localhost API port and advanced Browser Manager refresh/uninstall controls.
 
 ## Local automation API
 
@@ -12,7 +12,7 @@ Default base URL:
 http://127.0.0.1:9495/api/v1
 ```
 
-The listener is intentionally localhost-only. Start/restart endpoints return sanitized CDP connection data so local automation clients can attach to the managed Chromium instance without receiving executable paths, profile storage paths, or proxy secrets.
+The listener is intentionally localhost-only. Start/restart endpoints return sanitized CDP connection data so local automation clients can attach to the managed Chromium instance without receiving executable paths, profile storage paths, or proxy secrets. The port can be changed in Settings and is applied on the next ICRLogin start; `ICRLOGIN_API_PORT` remains a development override when present.
 
 See [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md) for endpoints, bearer usage, and CDP examples.
 
@@ -22,7 +22,13 @@ Full `.icrbackup` archives are checksum verified and can include Chromium user-d
 
 Startup recovery runs a non-destructive SQLite integrity check before migrations. Healthy databases can reconcile interrupted profile/Trash staging; unhealthy databases preserve those staging directories instead of guessing and start the desktop in recovery-only degraded mode without profile/browser/backup mutation IPC or the local API. Managed Chromium CPU/RAM is sampled without exposing generic process control or command lines to the renderer.
 
-See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md) and [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md).
+## Settings and Browser Manager
+
+Settings stores versioned public application preferences atomically under the local config directory. V1 includes launch-with-Windows, close behavior and the localhost API port. Closing the desktop never force-stops managed Chromium; the default behavior asks before quitting when profiles are still running.
+
+Browser Manager can refresh manifest/installed state, retry downloads, show managed artifact size and executable health, and remove a Chromium version only when no active profile references it. A broken unused install can be removed and downloaded again.
+
+See [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), and [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md).
 
 ## Development
 
@@ -38,6 +44,6 @@ npm run build -w @icrlogin/desktop
 npm run dev -w @icrlogin/desktop
 ```
 
-Developer details are documented in [`docs/development/phase-1-core.md`](docs/development/phase-1-core.md), [`docs/development/phase-2-desktop-ui.md`](docs/development/phase-2-desktop-ui.md), [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md), [`docs/development/phase-4-profile-ops-extensions.md`](docs/development/phase-4-profile-ops-extensions.md), [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), and [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md).
+Developer details are documented in [`docs/development/phase-1-core.md`](docs/development/phase-1-core.md), [`docs/development/phase-2-desktop-ui.md`](docs/development/phase-2-desktop-ui.md), [`docs/development/phase-3-local-api.md`](docs/development/phase-3-local-api.md), [`docs/development/phase-4-profile-ops-extensions.md`](docs/development/phase-4-profile-ops-extensions.md), [`docs/development/phase-5-backup-restore.md`](docs/development/phase-5-backup-restore.md), [`docs/development/phase-6-monitoring-recovery.md`](docs/development/phase-6-monitoring-recovery.md), and [`docs/development/phase-7-settings-browser-manager.md`](docs/development/phase-7-settings-browser-manager.md).
 
 The approved design and implementation plans are under [`docs/superpowers/`](docs/superpowers/).
