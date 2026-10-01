@@ -9,6 +9,8 @@ import {
 import { CreateGroupInputSchema, UpdateGroupInputSchema } from './group.js';
 import { CreateProxyInputSchema, UpdateProxyInputSchema } from './proxy.js';
 
+export const LOCAL_API_VERSION = 1 as const;
+
 export interface HttpApiError {
   code: AppErrorCode;
   message: string;
