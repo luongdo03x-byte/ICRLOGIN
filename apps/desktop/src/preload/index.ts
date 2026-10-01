@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { type ApiEnvelope, type IcrDesktopApiV7 } from '@icrlogin/shared';
+import { type ApiEnvelope, type IcrDesktopApiV8 } from '@icrlogin/shared';
 import { createPublicBridge } from './bridge.js';
-const bridge:IcrDesktopApiV7=createPublicBridge((channel,payload)=>ipcRenderer.invoke(channel,payload) as Promise<ApiEnvelope<unknown>>,(channel,listener)=>{const wrapped=(_event:unknown,payload:unknown)=>listener(payload);ipcRenderer.on(channel,wrapped);return()=>ipcRenderer.removeListener(channel,wrapped);});
+const bridge:IcrDesktopApiV8=createPublicBridge((channel,payload)=>ipcRenderer.invoke(channel,payload) as Promise<ApiEnvelope<unknown>>,(channel,listener)=>{const wrapped=(_event:unknown,payload:unknown)=>listener(payload);ipcRenderer.on(channel,wrapped);return()=>ipcRenderer.removeListener(channel,wrapped);});
 contextBridge.exposeInMainWorld('icr',bridge);
