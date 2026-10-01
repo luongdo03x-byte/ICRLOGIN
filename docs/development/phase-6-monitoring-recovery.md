@@ -17,11 +17,11 @@ Phase 6 adds local operational visibility and crash recovery while preserving IC
 
 The renderer receives only profile ID, PID, CPU percent, working-set bytes, sample time and availability status. It never receives executable paths, command lines or generic process-control access.
 
-## Startup integrity check
+## Startup integrity check and degraded mode
 
 Before migrations, the main process runs `PRAGMA quick_check` through `StartupRecoveryService`. If SQLite does not report `ok`, ICRLogin does not run migrations, runtime reconciliation, monitoring polling or the local automation API. The database is never automatically deleted or recreated.
 
-The desktop can still expose the startup recovery status so the user can see that recovery is required.
+An unhealthy database starts the desktop in recovery-only degraded mode. The normal Phase 1–5 operational service graph and IPC handlers are not created, so profile, browser, proxy, backup and Trash mutations cannot run against a database that failed integrity checking. The Phase-6 recovery-status IPC remains available so the renderer can report the exact startup health result; process monitoring returns an error envelope until normal services are available again.
 
 ## Crash staging reconciliation
 
@@ -41,12 +41,12 @@ Settings → Backup & Recovery now includes:
 - startup database health and quick-check result;
 - count of recovered staging entries, cleaned temp artifacts and recovery errors;
 - live CPU/RAM table for managed Chromium runtimes with a 5-second refresh;
-- the Phase-5 backup, import/export and Trash controls.
+- the Phase-5 backup, import/export and Trash controls when operational services are healthy.
 
 All Phase-6 calls use explicit typed IPC channels and the allowlisted preload bridge. No generic process, shell, filesystem or database primitive is exposed.
 
 ## Verification
 
-Tests cover recursive log redaction, CPU calculation and unavailable states, Windows process metric parsing, non-destructive unhealthy-DB behavior, database-aware staging reconciliation, real SQLite staging recovery, and preload allowlisting.
+Tests cover recursive log redaction, CPU calculation and unavailable states, Windows process metric parsing, non-destructive unhealthy-DB behavior, database-aware staging reconciliation, real SQLite staging recovery, degraded recovery-only IPC, and preload allowlisting.
 
-GitHub Actions continues to be an infrastructure blocker during implementation: workflow runs are created but the job terminates before any steps are assigned (`steps = null`). Therefore source implementation is present, but typecheck/lint/test/build success must not be claimed until a runner executes the configured CI steps.
+GitHub Actions continues to be an infrastructure blocker during implementation: workflow runs are created but jobs have historically terminated before any steps were assigned. Therefore source implementation is present, but typecheck/lint/test/build success must not be claimed until a runner executes the configured CI steps.
