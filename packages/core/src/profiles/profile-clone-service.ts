@@ -11,7 +11,7 @@ export interface ProfileCloneRelations {
 }
 export interface ProfileStateReader { getState(profileId: string): string; }
 interface ProfileCloneRepository { getById(id: string): Profile | null; create(profile: Profile): Profile; deleteById(id: string): void; }
-export interface CloneProfileOverrides { name?: string; groupId?: string | null; proxyId?: string | null; browserVersion?: string; }
+export interface CloneProfileOverrides { name?: string | undefined; groupId?: string | null | undefined; proxyId?: string | null | undefined; browserVersion?: string | undefined; }
 export interface ProfileCloneLock { runExclusive<T>(profileId: string, operation: () => Promise<T>): Promise<T>; }
 export interface ProfileCloneServiceOptions { idFactory?: () => string; now?: () => string; operationLock?: ProfileCloneLock; }
 
