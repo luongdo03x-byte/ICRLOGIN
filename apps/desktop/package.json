@@ -9,7 +9,8 @@
     "build": "electron-vite build",
     "dev": "electron-vite dev",
     "package:dir": "npm run build && electron-builder --dir --win --x64 --publish never",
-    "package:win": "npm run build && electron-builder --win nsis --x64 --publish never"
+    "package:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "package:release": "npm run build && electron-builder --win nsis --x64 --publish never -c.forceCodeSigning=true"
   },
   "dependencies": {
     "@icrlogin/core": "0.1.0",
