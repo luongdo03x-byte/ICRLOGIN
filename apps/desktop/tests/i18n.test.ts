@@ -14,9 +14,10 @@ describe('renderer i18n', () => {
     expect(translate('en', 'settings.language')).toBe('Language');
   });
 
-  it('translates centralized renderer literals without touching unknown values', () => {
+  it('translates centralized renderer literals in both directions without touching unknown values', () => {
     expect(translateLiteral('vi', 'Profiles')).toBe('Hồ sơ');
     expect(translateLiteral('vi', 'Create profile')).toBe('Tạo hồ sơ');
+    expect(translateLiteral('en', 'Hồ sơ')).toBe('Profiles');
     expect(translateLiteral('en', 'Profiles')).toBe('Profiles');
     expect(translateLiteral('vi', 'Chromium')).toBe('Chromium');
     expect(translateLiteral('vi', 'Custom profile name')).toBe('Custom profile name');
