@@ -12,4 +12,5 @@ export * from './settings.js';
 export * from './desktop-api.js';
 export * from './desktop-phase5.js';
 export * from './desktop-phase6.js';
+export * from './desktop-phase7.js';
 export * from './http-api.js';
