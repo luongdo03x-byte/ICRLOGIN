@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AppSettings, UpdateAppSettings } from '@icrlogin/shared';
 import { icrClient } from '../../api/icr-client.js';
+import { useI18n } from '../../i18n/react.js';
 import { RecoveryPage } from '../recovery/RecoveryPage.js';
 import { buildSettingsPatch, settingsDraftRequiresRestart } from './settings-model.js';
 import { updateAction, updateStateLabel } from './update-model.js';
@@ -16,6 +17,7 @@ function formatUpdateBytes(value: number | null): string {
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
+  const { locale, setLocale, t } = useI18n();
   const [tab, setTab] = useState<SettingsTab>('general');
   const [draft, setDraft] = useState<AppSettings | null>(null);
   const [message, setMessage] = useState('');
@@ -74,6 +76,7 @@ export function SettingsPage() {
     {message && <div className="info-panel settings-message">{message}</div>}
 
     {tab === 'general' && <div className="settings-grid">
+      <section className="settings-card"><div><h2>{t('settings.language')}</h2><p className="muted">{t('settings.languageDescription')}</p></div><label className="field"><span>{t('settings.language')}</span><select aria-label={t('settings.language')} value={locale} onChange={(event) => setLocale(event.target.value === 'en' ? 'en' : 'vi')}><option value="vi">Tiếng Việt</option><option value="en">English</option></select><small>{locale === 'vi' ? 'Thay đổi được áp dụng ngay và được ghi nhớ cho lần mở sau.' : 'Changes apply immediately and are remembered for the next launch.'}</small></label></section>
       <section className="settings-card"><div><h2>Windows startup</h2><p className="muted">Start ICRLogin automatically after you sign in to Windows.</p></div><label className="settings-toggle"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })}/><span>Launch ICRLogin with Windows</span></label></section>
       <section className="settings-card"><div><h2>Close behavior</h2><p className="muted">Running Chromium profiles are never force-stopped when the desktop closes.</p></div><label className="field"><span>When closing ICRLogin</span><select value={draft.closeBehavior} onChange={(event) => setDraft({ ...draft, closeBehavior: event.target.value as AppSettings['closeBehavior'] })}><option value="ask">Ask if browser profiles are still running</option><option value="tray">Hide ICRLogin to the system tray</option><option value="quit">Quit without prompting</option></select><small>Tray mode keeps the desktop process available while managed Chromium continues running independently.</small></label></section>
     </div>}
