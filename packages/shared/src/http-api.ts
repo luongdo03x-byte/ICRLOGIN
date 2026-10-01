@@ -3,9 +3,9 @@ import type { AppErrorCode } from './errors.js';
 import {
   CreateProfileInputSchema,
   UpdateProfileInputSchema,
-  type BrowserRuntimeState,
   type Profile
 } from './profile.js';
+import type { BrowserRuntimeState } from './browser.js';
 import { CreateGroupInputSchema, UpdateGroupInputSchema } from './group.js';
 import { CreateProxyInputSchema, UpdateProxyInputSchema } from './proxy.js';
 
