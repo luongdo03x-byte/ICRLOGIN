@@ -10,7 +10,14 @@ async function respond<T>(operation: () => Promise<T> | T): Promise<ApiEnvelope<
   catch { return errorEnvelope() as ApiEnvelope<T>; }
 }
 
-export function registerPhase6IpcHandlers(ipcMain: IpcMainLike, services: AppServices, recoveryStatus: StartupRecoveryPublic): void {
-  ipcMain.handle(PHASE6_DESKTOP_CHANNELS.monitoringSnapshot, () => respond(() => services.monitoring.sample()));
+export function registerPhase6IpcHandlers(
+  ipcMain: IpcMainLike,
+  services: Pick<AppServices, 'monitoring'> | null,
+  recoveryStatus: StartupRecoveryPublic
+): void {
+  ipcMain.handle(PHASE6_DESKTOP_CHANNELS.monitoringSnapshot, () => {
+    if (!services) return Promise.resolve(errorEnvelope());
+    return respond(() => services.monitoring.sample());
+  });
   ipcMain.handle(PHASE6_DESKTOP_CHANNELS.recoveryStatus, () => respond(() => ({ ...recoveryStatus })));
 }
