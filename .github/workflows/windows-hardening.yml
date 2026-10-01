@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - 'feat/phase-9-*'
+      - 'feat/phase-10-*'
   pull_request:
     branches:
       - main
@@ -23,6 +24,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Release parity
+        run: npm run verify:release-parity
 
       - name: Typecheck
         run: npm run typecheck
