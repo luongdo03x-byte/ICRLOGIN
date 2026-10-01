@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const desktopRoot = join(import.meta.dirname, '..');
 
 describe('windows packaging config', () => {
-  it('pins ICRLogin to x64 NSIS and keeps managed user data outside the app bundle', async () => {
+  it('pins ICRLogin to x64 NSIS, explicit update ownership and external user data', async () => {
     const config = await readFile(join(desktopRoot, 'electron-builder.yml'), 'utf8');
     expect(config).toContain('appId: com.icrlogin.desktop');
     expect(config).toContain('productName: ICRLogin');
@@ -14,6 +14,9 @@ describe('windows packaging config', () => {
     expect(config).toContain('oneClick: false');
     expect(config).toContain('perMachine: false');
     expect(config).toContain('ICRLogin-${version}-Setup-${arch}.${ext}');
+    expect(config).toContain('provider: github');
+    expect(config).toContain('owner: luongdo03x-byte');
+    expect(config).toContain('repo: ICRLOGIN');
     for (const forbidden of ['profiles/**', 'browsers/**', 'backups/**', 'trash/**', 'logs/**']) expect(config).not.toContain(forbidden);
   });
 
