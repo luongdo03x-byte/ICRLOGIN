@@ -21,7 +21,9 @@ try {
   const title = await window.title();
   if (title !== 'ICRLogin') throw new Error(`Unexpected desktop title: ${title}`);
   const body = await window.locator('body').innerText();
-  if (!body.includes('Profiles') || !body.includes('Settings')) {
+  const englishShell = body.includes('Profiles') && body.includes('Settings');
+  const vietnameseShell = body.includes('Hồ sơ') && body.includes('Cài đặt');
+  if (!englishShell && !vietnameseShell) {
     throw new Error('ICRLogin navigation shell did not render');
   }
 } finally {
