@@ -1,0 +1,56 @@
+name: Windows Hardening
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'feat/phase-9-*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  hardening:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit, integration, API, migration and recovery tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Real Chromium and local API automation smoke
+        run: npm run test:integration:chromium
+
+      - name: Build unpacked Windows desktop
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run package:dir
+
+      - name: Packaged Electron desktop smoke
+        run: npm run test:desktop:packaged
+
+      - name: Upload packaged smoke app on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ICRLogin-hardening-debug
+          if-no-files-found: ignore
+          path: |
+            apps/desktop/dist/win-unpacked/**
+            package-lock.json
