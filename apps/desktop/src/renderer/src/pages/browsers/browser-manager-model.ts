@@ -47,3 +47,11 @@ export function browserActionLabel(state: { installed: boolean; downloading: boo
   if (state.failed) return 'Retry';
   return 'Download';
 }
+
+export function canRemoveBrowser(browser: Pick<InstalledBrowserRow, 'profilesUsing'>): boolean {
+  return browser.profilesUsing === 0;
+}
+
+export function totalInstalledBytes(installed: readonly Pick<InstalledBrowserRow, 'artifactSize'>[]): number {
+  return installed.reduce((sum, item) => sum + item.artifactSize, 0);
+}
