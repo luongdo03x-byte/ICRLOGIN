@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - 'feat/phase-8-*'
+      - 'feat/phase-9-*'
   pull_request:
     branches:
       - main
@@ -32,6 +33,16 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Package unpacked Windows app
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run package:dir
+
+      - name: Packaged Electron smoke
+        shell: pwsh
+        run: npm run test:desktop:packaged
 
       - name: Package unsigned Windows installer
         shell: pwsh
