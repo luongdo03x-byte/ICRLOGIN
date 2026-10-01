@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, Tray } from 'electron';
 import {
   AppSettingsStore,
   DatabaseBackupService,
@@ -32,7 +32,8 @@ import { registerPhase6IpcHandlers } from './ipc-phase6.js';
 import { registerPhase7IpcHandlers } from './ipc-phase7.js';
 import { registerPhase8IpcHandlers } from './ipc-phase8.js';
 import { ElectronSafeStorageSecretStore } from './secret-store.js';
-import { shouldPromptBeforeClose } from './window-close-policy.js';
+import { bindTray, createTrayMenuTemplate, showAndFocusMainWindow } from './tray-controller.js';
+import { resolveWindowCloseAction } from './window-close-policy.js';
 import { WindowsProcessInspector } from './windows-process-inspector.js';
 import { WindowsProcessMetricsReader } from './windows-process-metrics.js';
 
@@ -123,6 +124,17 @@ async function bootstrap(): Promise<void> {
   if (devUrl) await window.loadURL(devUrl);
   else await window.loadFile(join(mainDir, '../renderer/index.html'));
 
+  let disposeTray: (() => void) | null = null;
+  try {
+    const icon = await app.getFileIcon(process.execPath, { size: 'small' });
+    const tray = new Tray(icon);
+    const onShow = () => { showAndFocusMainWindow(window); };
+    const menu = Menu.buildFromTemplate(createTrayMenuTemplate(onShow, () => app.quit()));
+    disposeTray = bindTray(tray, { menu, onShow });
+  } catch {
+    disposeTray = null;
+  }
+
   let shutdownStarted = false;
   let closeFlowStarted = false;
   let closeApproved = false;
@@ -134,7 +146,14 @@ async function bootstrap(): Promise<void> {
     void (async () => {
       const currentSettings = await settingsStore.read();
       const runningRuntimeCount = services?.registry.list().length ?? 0;
-      if (shouldPromptBeforeClose(currentSettings.closeBehavior, runningRuntimeCount)) {
+      let action = resolveWindowCloseAction(currentSettings.closeBehavior, runningRuntimeCount);
+      if (action === 'tray' && !disposeTray) action = runningRuntimeCount > 0 ? 'prompt' : 'quit';
+      if (action === 'tray') {
+        window.hide();
+        closeFlowStarted = false;
+        return;
+      }
+      if (action === 'prompt') {
         const answer = await dialog.showMessageBox(window, {
           type: 'warning',
           title: 'Running browser profiles',
@@ -156,6 +175,7 @@ async function bootstrap(): Promise<void> {
     void (async () => {
       services?.monitoring.stop();
       updates.dispose();
+      try { disposeTray?.(); } catch { /* best effort */ }
       try { await apiServer?.stop(); }
       catch { /* Shutdown remains best-effort; never log tokens or internal paths. */ }
       finally { db.close(); app.quit(); }
