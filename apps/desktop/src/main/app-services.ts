@@ -1,19 +1,25 @@
+import { join } from 'node:path';
 import {
   BackupArchiveReader,
   BackupArchiveWriter,
   BackupHistoryRepository,
   BrowserDownloadInstaller,
+  BrowserEnvironmentApplier,
   BrowserService,
   BrowserVersionRepository,
   BrowserVersionService,
   BulkOperationService,
   ChromiumLauncher,
   DatabaseBackupService,
+  EgressIpResolver,
   ExtensionImporter,
   ExtensionRepository,
   ExtensionService,
+  GeoIpService,
   GroupRepository,
   GroupService,
+  NetworkIdentityCacheRepository,
+  NetworkIdentityResolver,
   PortAllocator,
   ProcessMonitor,
   ProcessRegistry,
@@ -21,6 +27,8 @@ import {
   ProfileCloneService,
   ProfileConfigTransferService,
   ProfileFiles,
+  ProfileLaunchCoordinator,
+  ProfileLaunchProgressHub,
   ProfileMutationCoordinator,
   ProfileOperationLock,
   ProfileRepository,
@@ -30,7 +38,9 @@ import {
   ProfileTemplateService,
   ProxyConnectivityService,
   ProxyRepository,
+  ProxyRuntimeExtensionBuilder,
   ProxyService,
+  RuntimeEnvironmentResolver,
   RuntimeSessionRepository,
   TagRepository,
   TagService,
@@ -53,6 +63,7 @@ export interface AppServices {
   profileMutations: ProfileMutationCoordinator; registry: ProcessRegistry; runtimeSessions: RuntimeSessionRepository;
   backups: BackupHistoryRepository; profileBackups: ProfileBackupService; profileRestore: ProfileRestoreService;
   profileConfigTransfer: ProfileConfigTransferService; databaseBackups: DatabaseBackupService; monitoring: ProcessMonitor;
+  launchProgress: ProfileLaunchProgressHub; geoIp: GeoIpService;
 }
 export interface CreateAppServicesOptions { db: Database; paths: AppPaths; secretStore: SecretStore; browserArtifactProvider: BrowserArtifactProvider; browserArtifactInstaller?: BrowserArtifactInstaller; cdpWaiter?: CdpWaiter; registry?: ProcessRegistry; processMetricsReader?: ProcessMetricsReader; }
 
@@ -66,6 +77,7 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
   const browserVersionRepository = new BrowserVersionRepository(options.db);
   const runtimeSessions = new RuntimeSessionRepository(options.db);
   const backupHistory = new BackupHistoryRepository(options.db);
+  const networkIdentityCache = new NetworkIdentityCacheRepository(options.db);
   const registry = options.registry ?? new ProcessRegistry();
   const profileFiles = new ProfileFiles(options.paths);
   const operationLock = new ProfileOperationLock();
@@ -80,7 +92,24 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
   const downloader = new BrowserDownloadInstaller(options.paths);
   const artifactInstaller: BrowserArtifactInstaller = options.browserArtifactInstaller ?? ((entry, onProgress) => downloader.install(entry, onProgress));
   const browserVersions = new BrowserVersionService(options.browserArtifactProvider, browserVersionRepository, artifactInstaller, { usageCounter: (version) => profileRepository.countByBrowserVersion(version), uninstaller: (browser) => removeManagedBrowser(options.paths, browser.version) });
-  const browsers = new BrowserService({ profiles: profileRepository, browserVersions, proxies, extensions, portAllocator: new PortAllocator(), launcher: new ChromiumLauncher(), cdpWaiter: options.cdpWaiter ?? waitForCdp, registry, operationLock, runtimeSessions, paths: options.paths });
+
+  const geoIp = new GeoIpService(join(options.paths.geoIpDir, 'GeoLite2-City.mmdb'));
+  const networkIdentity = new NetworkIdentityResolver(new EgressIpResolver(), geoIp, networkIdentityCache);
+  const environmentResolver = new RuntimeEnvironmentResolver();
+  const proxyRuntimeExtension = new ProxyRuntimeExtensionBuilder(options.paths);
+  const launchProgress = new ProfileLaunchProgressHub();
+  const launchCoordinator = new ProfileLaunchCoordinator({
+    proxies,
+    proxyConnectivity,
+    networkIdentity,
+    browserVersions,
+    environmentResolver,
+    proxyRuntimeExtension,
+    publish: (event) => launchProgress.publish(event)
+  });
+  const environmentApplier = new BrowserEnvironmentApplier();
+
+  const browsers = new BrowserService({ profiles: profileRepository, browserVersions, proxies, extensions, portAllocator: new PortAllocator(), launcher: new ChromiumLauncher(), cdpWaiter: options.cdpWaiter ?? waitForCdp, registry, operationLock, runtimeSessions, paths: options.paths, launchCoordinator, environmentApplier });
   const profiles = new ProfileService(profileRepository, profileFiles, { browsers, operationLock });
 
   const relations = { getTagIds: (profileId: string) => profileRepository.listTagIds(profileId), getExtensionIds: (profileId: string) => extensions.getDirectExtensionIds(profileId), setTagIds: (profileId: string, ids: string[]) => tags.setProfileTags(profileId, ids), setExtensionIds: (profileId: string, ids: string[]) => extensions.setProfileExtensionIds(profileId, ids) };
@@ -137,5 +166,5 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
     }
   });
 
-  return { profiles, groups, proxies, proxyConnectivity, tags, extensions, browserVersions, browsers, profileClones, templates, bulk, profileMutations, registry, runtimeSessions, backups: backupHistory, profileBackups, profileRestore, profileConfigTransfer, databaseBackups, monitoring };
+  return { profiles, groups, proxies, proxyConnectivity, tags, extensions, browserVersions, browsers, profileClones, templates, bulk, profileMutations, registry, runtimeSessions, backups: backupHistory, profileBackups, profileRestore, profileConfigTransfer, databaseBackups, monitoring, launchProgress, geoIp };
 }
