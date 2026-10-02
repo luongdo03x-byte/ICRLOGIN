@@ -11,6 +11,10 @@ type ProfileRow = {
   user_agent: string | null;
   language: string;
   timezone: string;
+  environment_mode: 'auto' | 'manual';
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
   window_width: number;
   window_height: number;
   screen_width: number;
@@ -35,6 +39,10 @@ function mapRow(row: ProfileRow): Profile {
     userAgent: row.user_agent,
     language: row.language,
     timezone: row.timezone,
+    environmentMode: row.environment_mode,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    accuracy: row.accuracy,
     windowWidth: row.window_width,
     windowHeight: row.window_height,
     screenWidth: row.screen_width,
@@ -57,6 +65,10 @@ const UPDATE_COLUMNS: Record<keyof UpdateProfileInput, string> = {
   userAgent: 'user_agent',
   language: 'language',
   timezone: 'timezone',
+  environmentMode: 'environment_mode',
+  latitude: 'latitude',
+  longitude: 'longitude',
+  accuracy: 'accuracy',
   windowWidth: 'window_width',
   windowHeight: 'window_height',
   screenWidth: 'screen_width',
@@ -80,18 +92,20 @@ export class ProfileRepository {
     this.db.prepare(`
       INSERT INTO profiles (
         id, name, description, group_id, browser_version, proxy_id, user_agent,
-        language, timezone, window_width, window_height, screen_width, screen_height,
+        language, timezone, environment_mode, latitude, longitude, accuracy,
+        window_width, window_height, screen_width, screen_height,
         webrtc_enabled, geolocation_mode, startup_urls_json, created_at, updated_at,
         last_used_at, deleted_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       profile.id, profile.name, profile.description ?? null, profile.groupId ?? null,
       profile.browserVersion, profile.proxyId ?? null, profile.userAgent ?? null,
-      profile.language ?? 'en-US', profile.timezone ?? 'UTC', profile.windowWidth ?? 1280,
-      profile.windowHeight ?? 800, profile.screenWidth ?? 1920, profile.screenHeight ?? 1080,
-      profile.webrtcEnabled === false ? 0 : 1, profile.geolocationMode ?? 'ask',
-      JSON.stringify(profile.startupUrls ?? []), profile.createdAt, profile.updatedAt,
-      profile.lastUsedAt, profile.deletedAt
+      profile.language ?? 'en-US', profile.timezone ?? 'UTC', profile.environmentMode ?? 'auto',
+      profile.latitude ?? null, profile.longitude ?? null, profile.accuracy ?? null,
+      profile.windowWidth ?? 1280, profile.windowHeight ?? 800, profile.screenWidth ?? 1920,
+      profile.screenHeight ?? 1080, profile.webrtcEnabled === false ? 0 : 1,
+      profile.geolocationMode ?? 'ask', JSON.stringify(profile.startupUrls ?? []),
+      profile.createdAt, profile.updatedAt, profile.lastUsedAt, profile.deletedAt
     );
     return profile;
   }
