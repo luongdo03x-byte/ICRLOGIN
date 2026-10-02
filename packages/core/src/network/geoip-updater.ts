@@ -87,10 +87,10 @@ export class GeoIpUpdater {
     this.extract = options.extract ?? defaultExtract;
   }
 
-  async ensureFresh(): Promise<GeoIpUpdateResult> {
+  async ensureFresh(force = false): Promise<GeoIpUpdateResult> {
     await mkdir(this.paths.geoIpDir, { recursive: true });
     const activeExists = await exists(this.dbPath);
-    if (activeExists) {
+    if (activeExists && !force) {
       const info = await stat(this.dbPath);
       if (this.now() - info.mtimeMs < this.cadenceMs) return { status: 'current', dbPath: this.dbPath };
     }
