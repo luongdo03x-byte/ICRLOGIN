@@ -37,7 +37,7 @@ export class BrowserEnvironmentApplier {
         setting: permissionSetting(environment.geolocationMode)
       });
 
-      const applyToSession = async (sessionId: string, resume = false): Promise<void> => {
+      const applyToSession = async (sessionId: string): Promise<void> => {
         if (effectiveUserAgent) {
           await cdp.send('Emulation.setUserAgentOverride', {
             userAgent: effectiveUserAgent,
@@ -65,12 +65,18 @@ export class BrowserEnvironmentApplier {
         } else {
           await cdp.send('Emulation.clearGeolocationOverride', {}, sessionId);
         }
-        if (resume) await cdp.send('Runtime.runIfWaitingForDebugger', {}, sessionId);
       };
 
       const disposeAttached = cdp.on('Target.attachedToTarget', (params) => {
         if (params?.targetInfo?.type !== 'page' || typeof params.sessionId !== 'string') return;
-        void applyToSession(params.sessionId, true).catch(() => undefined);
+        const sessionId = params.sessionId;
+        void (async () => {
+          try {
+            await applyToSession(sessionId);
+          } finally {
+            await cdp.send('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => undefined);
+          }
+        })().catch(() => undefined);
       });
       await cdp.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
 
