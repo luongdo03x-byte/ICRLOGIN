@@ -14,6 +14,7 @@ export interface NetworkIdentityCacheLike {
 
 export interface NetworkIdentityResolveOptions {
   allowStaleFallback?: boolean;
+  allowUnlocatedIdentity?: boolean;
   now?: () => string;
 }
 
@@ -30,8 +31,27 @@ export class NetworkIdentityResolver {
     options: NetworkIdentityResolveOptions = {}
   ): Promise<ResolvedNetworkIdentity> {
     const now = options.now ?? (() => new Date().toISOString());
+    const allowStale = options.allowStaleFallback ?? true;
+    let publicIp: string;
     try {
-      const { publicIp } = await this.egress.resolve(proxy);
+      publicIp = (await this.egress.resolve(proxy)).publicIp;
+    } catch (error) {
+      if (error instanceof AppError && error.code === 'PROXY_CONNECTION_FAILED') throw error;
+      if (proxy) {
+        try {
+          await this.egress.resolve(null);
+          throw new AppError('PROXY_CONNECTION_FAILED', 'Proxy route cannot resolve public egress IP');
+        } catch (directError) {
+          if (directError instanceof AppError && directError.code === 'PROXY_CONNECTION_FAILED') throw directError;
+        }
+      }
+      const cached = allowStale ? this.cache.get(routeKey) : null;
+      if (cached) return { ...cached, stale: true };
+      if (error instanceof AppError) throw error;
+      throw new AppError('EGRESS_IP_RESOLUTION_FAILED', 'Unable to resolve public egress IP');
+    }
+
+    try {
       const geo = await this.geoip.lookup(publicIp);
       const record: NetworkIdentityCacheRecord = {
         routeKey,
@@ -48,12 +68,25 @@ export class NetworkIdentityResolver {
       this.cache.upsert(record);
       return { ...record, stale: false };
     } catch (error) {
-      if (error instanceof AppError && error.code === 'PROXY_CONNECTION_FAILED') throw error;
-      const allowStale = options.allowStaleFallback ?? true;
       const cached = allowStale ? this.cache.get(routeKey) : null;
-      if (cached) return { ...cached, stale: true };
+      if (cached && cached.publicIp === publicIp) return { ...cached, stale: true };
+      if (options.allowUnlocatedIdentity) {
+        return {
+          routeKey,
+          publicIp,
+          countryIso: null,
+          cityName: null,
+          timezone: null,
+          latitude: null,
+          longitude: null,
+          accuracy: null,
+          resolvedAt: now(),
+          sourceDbVersion: null,
+          stale: false
+        };
+      }
       if (error instanceof AppError) throw error;
-      throw new AppError('EGRESS_IP_RESOLUTION_FAILED', 'Unable to resolve network identity');
+      throw new AppError('GEOIP_LOOKUP_FAILED', 'Unable to resolve GeoIP data for public egress IP');
     }
   }
 }
