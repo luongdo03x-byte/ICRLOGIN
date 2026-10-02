@@ -3,7 +3,17 @@ import type { ProxyRuntimeConfig } from '../proxies/proxy-args.js';
 import type { NetworkIdentityCacheRecord } from '../repositories/network-identity-cache-repository.js';
 import type { GeoIpRecord } from './geoip-service.js';
 
-export interface ResolvedNetworkIdentity extends NetworkIdentityCacheRecord {
+export interface ResolvedNetworkIdentity {
+  routeKey: string;
+  publicIp: string | null;
+  countryIso: string | null;
+  cityName: string | null;
+  timezone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  resolvedAt: string;
+  sourceDbVersion: string | null;
   stale: boolean;
 }
 
@@ -16,6 +26,22 @@ export interface NetworkIdentityResolveOptions {
   allowStaleFallback?: boolean;
   allowUnlocatedIdentity?: boolean;
   now?: () => string;
+}
+
+function unresolvedIdentity(routeKey: string, resolvedAt: string): ResolvedNetworkIdentity {
+  return {
+    routeKey,
+    publicIp: null,
+    countryIso: null,
+    cityName: null,
+    timezone: null,
+    latitude: null,
+    longitude: null,
+    accuracy: null,
+    resolvedAt,
+    sourceDbVersion: null,
+    stale: false
+  };
 }
 
 export class NetworkIdentityResolver {
@@ -37,16 +63,9 @@ export class NetworkIdentityResolver {
       publicIp = (await this.egress.resolve(proxy)).publicIp;
     } catch (error) {
       if (error instanceof AppError && error.code === 'PROXY_CONNECTION_FAILED') throw error;
-      if (proxy) {
-        try {
-          await this.egress.resolve(null);
-          throw new AppError('PROXY_CONNECTION_FAILED', 'Proxy route cannot resolve public egress IP');
-        } catch (directError) {
-          if (directError instanceof AppError && directError.code === 'PROXY_CONNECTION_FAILED') throw directError;
-        }
-      }
       const cached = allowStale ? this.cache.get(routeKey) : null;
       if (cached) return { ...cached, stale: true };
+      if (options.allowUnlocatedIdentity) return unresolvedIdentity(routeKey, now());
       if (error instanceof AppError) throw error;
       throw new AppError('EGRESS_IP_RESOLUTION_FAILED', 'Unable to resolve public egress IP');
     }
