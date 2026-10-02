@@ -10,6 +10,7 @@ export interface CdpConnectionLike {
 }
 
 export interface BrowserEnvironmentHandle {
+  openUrls(urls: readonly string[]): Promise<void>;
   close(): void;
 }
 
@@ -36,7 +37,7 @@ export class BrowserEnvironmentApplier {
         setting: permissionSetting(environment.geolocationMode)
       });
 
-      const applyToSession = async (sessionId: string): Promise<void> => {
+      const applyToSession = async (sessionId: string, resume = false): Promise<void> => {
         if (effectiveUserAgent) {
           await cdp.send('Emulation.setUserAgentOverride', {
             userAgent: effectiveUserAgent,
@@ -64,7 +65,14 @@ export class BrowserEnvironmentApplier {
         } else {
           await cdp.send('Emulation.clearGeolocationOverride', {}, sessionId);
         }
+        if (resume) await cdp.send('Runtime.runIfWaitingForDebugger', {}, sessionId);
       };
+
+      const disposeAttached = cdp.on('Target.attachedToTarget', (params) => {
+        if (params?.targetInfo?.type !== 'page' || typeof params.sessionId !== 'string') return;
+        void applyToSession(params.sessionId, true).catch(() => undefined);
+      });
+      await cdp.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
 
       const existing = await cdp.send<{ targetInfos?: Array<{ targetId: string; type: string }> }>('Target.getTargets');
       for (const target of existing.targetInfos ?? []) {
@@ -73,14 +81,11 @@ export class BrowserEnvironmentApplier {
         await applyToSession(attached.sessionId);
       }
 
-      const disposeAttached = cdp.on('Target.attachedToTarget', (params) => {
-        if (params?.targetInfo?.type !== 'page' || typeof params.sessionId !== 'string') return;
-        void applyToSession(params.sessionId).catch(() => undefined);
-      });
-      await cdp.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
-
       let closed = false;
       return {
+        async openUrls(urls: readonly string[]): Promise<void> {
+          for (const url of urls) await cdp.send('Target.createTarget', { url });
+        },
         close() {
           if (closed) return;
           closed = true;
