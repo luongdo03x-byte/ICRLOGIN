@@ -1,7 +1,7 @@
 import type { Profile, ProfileLaunchProgress, ProfileLaunchStage } from '@icrlogin/shared';
 import type { InstalledBrowser, BrowserDownloadProgress } from './artifact-provider.js';
 import type { ProxyRuntimeConfig } from '../proxies/proxy-args.js';
-import type { ResolvedNetworkIdentity } from '../network/network-identity-resolver.js';
+import type { NetworkIdentityResolveOptions, ResolvedNetworkIdentity } from '../network/network-identity-resolver.js';
 import type { EffectiveRuntimeEnvironment } from './runtime-environment-resolver.js';
 import type { PreparedProxyRuntimeExtension } from '../proxies/proxy-runtime-extension.js';
 
@@ -19,7 +19,7 @@ export interface PreparedProfileLaunch {
 interface ProfileLaunchCoordinatorDependencies {
   proxies: { getRuntimeConfig(id: string): Promise<ProxyRuntimeConfig> };
   proxyConnectivity: { test(proxyId: string): Promise<{ reachable: boolean; latencyMs: number }> };
-  networkIdentity: { resolve(routeKey: string, proxy: ProxyRuntimeConfig | null): Promise<ResolvedNetworkIdentity> };
+  networkIdentity: { resolve(routeKey: string, proxy: ProxyRuntimeConfig | null, options?: NetworkIdentityResolveOptions): Promise<ResolvedNetworkIdentity> };
   browserVersions: {
     isInstalled(version: string): boolean;
     ensureInstalled(version: string, onProgress?: (progress: BrowserDownloadProgress) => void): Promise<InstalledBrowser>;
@@ -88,7 +88,9 @@ export class ProfileLaunchCoordinator {
 
       this.publish(profile.id, 'resolving-geo');
       const routeKey = proxy ? `proxy:${proxy.id}` : 'direct';
-      const networkIdentity = await this.deps.networkIdentity.resolve(routeKey, proxy);
+      const networkIdentity = await this.deps.networkIdentity.resolve(routeKey, proxy, {
+        allowUnlocatedIdentity: profile.environmentMode === 'manual'
+      });
 
       const alreadyInstalled = this.deps.browserVersions.isInstalled(profile.browserVersion);
       const installedBrowser = await this.deps.browserVersions.ensureInstalled(profile.browserVersion, (progress) => {
