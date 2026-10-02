@@ -3,6 +3,7 @@ import { migration001 } from './migrations/001.js';
 import { migration002 } from './migrations/002.js';
 import { migration003 } from './migrations/003.js';
 import { migration004 } from './migrations/004.js';
+import { migration005 } from './migrations/005.js';
 
 interface Migration {
   readonly version: number;
@@ -13,8 +14,8 @@ export interface MigrationOptions {
   beforeMigration?: () => Promise<void> | void;
 }
 
-export const CURRENT_DB_SCHEMA_VERSION = 4 as const;
-const MIGRATIONS: readonly Migration[] = [migration001, migration002, migration003, migration004];
+export const CURRENT_DB_SCHEMA_VERSION = 5 as const;
+const MIGRATIONS: readonly Migration[] = [migration001, migration002, migration003, migration004, migration005];
 if (MIGRATIONS[MIGRATIONS.length - 1]?.version !== CURRENT_DB_SCHEMA_VERSION) {
   throw new Error('CURRENT_DB_SCHEMA_VERSION must match the latest migration');
 }
