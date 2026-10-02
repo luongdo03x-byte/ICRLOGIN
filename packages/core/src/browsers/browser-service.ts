@@ -2,8 +2,10 @@ import { writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppError, type BrowserRuntimeInfo, type BrowserRuntimeState, type Profile } from '@icrlogin/shared';
 import type { AppPaths } from '../app-paths.js';
-import type { InstalledBrowser } from './artifact-provider.js';
+import type { BrowserDownloadProgress, InstalledBrowser } from './artifact-provider.js';
+import type { BrowserEnvironmentHandle } from './browser-environment-applier.js';
 import type { ChildProcessHandle, ChromiumLaunchInput } from './chromium-launcher.js';
+import type { PreparedProfileLaunch, ProfileLaunchCoordinator } from './profile-launch-coordinator.js';
 import type { ProxyRuntimeConfig } from '../proxies/proxy-args.js';
 import type { RuntimeSessionRepository } from '../repositories/runtime-session-repository.js';
 import type { ProcessRegistry } from './process-registry.js';
@@ -16,7 +18,7 @@ interface ProfileReader {
 }
 
 interface BrowserVersionResolver {
-  ensureInstalled(version: string): Promise<InstalledBrowser>;
+  ensureInstalled(version: string, onProgress?: (progress: BrowserDownloadProgress) => void): Promise<InstalledBrowser>;
 }
 
 interface ProxyRuntimeResolver {
@@ -36,6 +38,10 @@ interface ChromiumLauncherLike {
   spawn(input: ChromiumLaunchInput): ChildProcessHandle;
 }
 
+interface BrowserEnvironmentApplierLike {
+  apply(webSocketUrl: string, environment: PreparedProfileLaunch['environment']): Promise<BrowserEnvironmentHandle>;
+}
+
 export type CdpWaiter = (baseUrl: string, timeoutMs: number, signal: AbortSignal) => Promise<string>;
 export type CdpCloser = (webSocketUrl: string, timeoutMs: number) => Promise<void>;
 export type BrowserLifecycleState = 'stopped' | BrowserRuntimeState;
@@ -53,6 +59,8 @@ export interface BrowserServiceDependencies {
   operationLock: ProfileOperationLock;
   runtimeSessions: RuntimeSessionRepository;
   paths: AppPaths;
+  launchCoordinator?: ProfileLaunchCoordinator;
+  environmentApplier?: BrowserEnvironmentApplierLike;
   cdpTimeoutMs?: number;
   stopGraceMs?: number;
 }
@@ -60,6 +68,11 @@ export interface BrowserServiceDependencies {
 interface ManagedProcess {
   handle: ChildProcessHandle;
   exitPromise: Promise<void>;
+}
+
+interface RuntimeResources {
+  environmentHandle: BrowserEnvironmentHandle | null;
+  cleanupRuntimeExtension: (() => Promise<void>) | null;
 }
 
 function timeout(ms: number): Promise<'timeout'> {
@@ -71,6 +84,7 @@ export class BrowserService {
   private readonly stopping = new Set<string>();
   private readonly restarting = new Set<string>();
   private readonly processes = new Map<string, ManagedProcess>();
+  private readonly resources = new Map<string, RuntimeResources>();
   private readonly cdpTimeoutMs: number;
   private readonly stopGraceMs: number;
   private readonly cdpCloser: CdpCloser;
@@ -109,12 +123,23 @@ export class BrowserService {
         const profile = this.deps.profiles.getById(profileId);
         if (!profile) throw new AppError('PROFILE_NOT_FOUND', 'Profile not found');
 
-        const installed = await this.deps.browserVersions.ensureInstalled(profile.browserVersion);
-        const proxy = profile.proxyId ? await this.deps.proxies.getRuntimeConfig(profile.proxyId) : null;
+        let prepared: PreparedProfileLaunch | null = null;
+        let installed: InstalledBrowser;
+        let proxy: ProxyRuntimeConfig | null;
+        if (this.deps.launchCoordinator) {
+          prepared = await this.deps.launchCoordinator.prepare(profile);
+          installed = prepared.installedBrowser;
+          proxy = prepared.proxy;
+        } else {
+          installed = await this.deps.browserVersions.ensureInstalled(profile.browserVersion);
+          proxy = profile.proxyId ? await this.deps.proxies.getRuntimeConfig(profile.proxyId) : null;
+        }
+
         const extensionPaths = this.deps.extensions ? await this.deps.extensions.resolvePaths(profileId) : [];
         const port = await this.deps.portAllocator.reserve();
         let portReserved = true;
         let handle: ChildProcessHandle | undefined;
+        let environmentHandle: BrowserEnvironmentHandle | null = null;
         const cdpAbort = new AbortController();
         let exited = false;
         let startupComplete = false;
@@ -126,13 +151,18 @@ export class BrowserService {
           await this.deps.portAllocator.release(port);
           portReserved = false;
           const userDataDir = join(this.deps.paths.profilesDir, profileId, 'user-data');
+          this.deps.launchCoordinator?.publish(profileId, 'launching', {
+            staleNetworkIdentity: prepared?.networkIdentity.stale ?? false
+          });
           handle = this.deps.launcher.spawn({
             profile,
             executablePath: installed.executablePath,
             profileUserDataDir: userDataDir,
             remoteDebuggingPort: port,
             proxy,
-            extensionPaths
+            extensionPaths,
+            runtimeExtensionPaths: prepared?.runtimeExtensionPath ? [prepared.runtimeExtensionPath] : [],
+            deferStartupUrls: Boolean(prepared)
           });
 
           handle.onExit(() => {
@@ -156,8 +186,22 @@ export class BrowserService {
           }, null, 2)}\n`, 'utf8');
 
           const cdpHttpUrl = `http://127.0.0.1:${port}`;
+          this.deps.launchCoordinator?.publish(profileId, 'waiting-cdp', {
+            staleNetworkIdentity: prepared?.networkIdentity.stale ?? false
+          });
           const webSocketDebuggerUrl = await this.deps.cdpWaiter(cdpHttpUrl, this.cdpTimeoutMs, cdpAbort.signal);
           if (exited) throw new AppError('BROWSER_START_FAILED', 'Chromium exited before runtime registration');
+
+          if (prepared) {
+            if (!this.deps.environmentApplier) {
+              throw new AppError('BROWSER_ENVIRONMENT_APPLY_FAILED', 'Browser environment applier is not configured');
+            }
+            this.deps.launchCoordinator?.publish(profileId, 'applying-environment', {
+              staleNetworkIdentity: prepared.networkIdentity.stale
+            });
+            environmentHandle = await this.deps.environmentApplier.apply(webSocketDebuggerUrl, prepared.environment);
+            await environmentHandle.openUrls(profile.startupUrls);
+          }
 
           const runtime: BrowserRuntimeInfo = {
             profileId,
@@ -174,17 +218,30 @@ export class BrowserService {
           this.deps.runtimeSessions.upsert(runtime);
           this.deps.registry.register(runtime);
           this.processes.set(profileId, { handle, exitPromise });
+          this.resources.set(profileId, {
+            environmentHandle,
+            cleanupRuntimeExtension: prepared?.cleanupRuntimeExtension ?? null
+          });
           startupComplete = true;
           if (exited) {
             await this.cleanupRuntime(profileId, handle.pid);
             throw new AppError('BROWSER_START_FAILED', 'Chromium exited while runtime state was being registered');
           }
           this.deps.profiles.markLastUsed?.(profileId, runtime.startedAt);
+          this.deps.launchCoordinator?.publish(profileId, 'running', {
+            staleNetworkIdentity: prepared?.networkIdentity.stale ?? false
+          });
           return runtime;
         } catch (error) {
+          environmentHandle?.close();
           if (portReserved) await this.deps.portAllocator.release(port).catch(() => undefined);
           if (handle) await handle.forceTerminate().catch(() => undefined);
+          await prepared?.cleanupRuntimeExtension().catch(() => undefined);
           await this.cleanupRuntime(profileId, handle?.pid);
+          this.deps.launchCoordinator?.publish(profileId, 'failed', {
+            message: error instanceof Error ? error.message : 'Profile launch failed',
+            staleNetworkIdentity: prepared?.networkIdentity.stale ?? false
+          });
           throw error;
         }
       });
@@ -246,6 +303,10 @@ export class BrowserService {
   private async cleanupRuntime(profileId: string, expectedPid?: number): Promise<void> {
     const registered = this.deps.registry.get(profileId);
     if (expectedPid !== undefined && registered && registered.pid !== expectedPid) return;
+    const resources = this.resources.get(profileId);
+    this.resources.delete(profileId);
+    try { resources?.environmentHandle?.close(); } catch { /* best effort */ }
+    await resources?.cleanupRuntimeExtension?.().catch(() => undefined);
     this.deps.registry.remove(profileId);
     this.deps.runtimeSessions.delete(profileId);
     this.processes.delete(profileId);
