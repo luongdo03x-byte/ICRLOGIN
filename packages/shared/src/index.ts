@@ -11,6 +11,7 @@ export * from './backup.js';
 export * from './settings.js';
 export * from './app-update.js';
 export * from './launch-progress.js';
+export * from './runtime-diagnostics.js';
 export * from './desktop-api.js';
 export * from './desktop-phase5.js';
 export * from './desktop-phase6.js';
