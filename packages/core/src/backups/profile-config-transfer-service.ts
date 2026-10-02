@@ -35,8 +35,9 @@ function invalid(message:string):AppError{return new AppError('INVALID_REQUEST',
 function publicConfig(profile:Profile){
   return {
     name:profile.name,browserVersion:profile.browserVersion,groupId:profile.groupId,proxyId:profile.proxyId,
-    userAgent:profile.userAgent,language:profile.language,timezone:profile.timezone,windowWidth:profile.windowWidth,
-    windowHeight:profile.windowHeight,screenWidth:profile.screenWidth,screenHeight:profile.screenHeight,
+    userAgent:profile.userAgent,language:profile.language,timezone:profile.timezone,
+    environmentMode:profile.environmentMode,latitude:profile.latitude,longitude:profile.longitude,accuracy:profile.accuracy,
+    windowWidth:profile.windowWidth,windowHeight:profile.windowHeight,screenWidth:profile.screenWidth,screenHeight:profile.screenHeight,
     webrtcEnabled:profile.webrtcEnabled,geolocationMode:profile.geolocationMode,startupUrls:[...profile.startupUrls],description:profile.description
   };
 }
