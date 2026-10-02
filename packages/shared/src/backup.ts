@@ -28,22 +28,8 @@ export const BackupManifestSchema = z.object({
   entries: z.array(BackupManifestEntrySchema)
 }).strict();
 
-export interface BackupManifestEntry {
-  path: string;
-  sha256: string;
-  byteLength: number;
-}
-
-export interface BackupManifest {
-  formatVersion: typeof BACKUP_FORMAT_VERSION;
-  mode: BackupMode;
-  createdAt: string;
-  appVersion: string;
-  profileId: string;
-  browserVersion: string;
-  payloadChecksum: string;
-  entries: BackupManifestEntry[];
-}
+export interface BackupManifestEntry { path: string; sha256: string; byteLength: number; }
+export interface BackupManifest { formatVersion: typeof BACKUP_FORMAT_VERSION; mode: BackupMode; createdAt: string; appVersion: string; profileId: string; browserVersion: string; payloadChecksum: string; entries: BackupManifestEntry[]; }
 
 export const ProfileConfigPayloadSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -53,6 +39,10 @@ export const ProfileConfigPayloadSchema = z.object({
   userAgent: z.string().trim().min(1).max(1024).nullable(),
   language: z.string().trim().min(1).max(64),
   timezone: z.string().trim().min(1).max(128),
+  environmentMode: z.enum(['auto', 'manual']).optional(),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  accuracy: z.number().nonnegative().nullable().optional(),
   windowWidth: z.number().int().positive(),
   windowHeight: z.number().int().positive(),
   screenWidth: z.number().int().positive(),
@@ -79,6 +69,10 @@ export interface ProfileConfigPayload {
   userAgent: string | null;
   language: string;
   timezone: string;
+  environmentMode?: 'auto' | 'manual';
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
   windowWidth: number;
   windowHeight: number;
   screenWidth: number;
@@ -89,35 +83,8 @@ export interface ProfileConfigPayload {
   description: string | null;
 }
 
-export interface ProfileConfigExport {
-  formatVersion: typeof PROFILE_CONFIG_EXPORT_VERSION;
-  exportedAt: string;
-  profile: ProfileConfigPayload;
-  tagIds: string[];
-  extensionIds: string[];
-}
-
+export interface ProfileConfigExport { formatVersion: typeof PROFILE_CONFIG_EXPORT_VERSION; exportedAt: string; profile: ProfileConfigPayload; tagIds: string[]; extensionIds: string[]; }
 export type BackupHistoryStatus = 'completed' | 'failed';
-
-export interface BackupRecordPublic {
-  id: string;
-  profileId: string | null;
-  mode: BackupMode;
-  fileName: string;
-  checksum: string | null;
-  status: BackupHistoryStatus;
-  createdAt: string;
-}
-
-export interface RestoreProfileResult {
-  profile: Profile;
-  sourceProfileId: string;
-  createdProfileId: string;
-  idCollision: boolean;
-  warnings: string[];
-}
-
-export interface ImportProfileResult {
-  profile: Profile;
-  warnings: string[];
-}
+export interface BackupRecordPublic { id: string; profileId: string | null; mode: BackupMode; fileName: string; checksum: string | null; status: BackupHistoryStatus; createdAt: string; }
+export interface RestoreProfileResult { profile: Profile; sourceProfileId: string; createdProfileId: string; idCollision: boolean; warnings: string[]; }
+export interface ImportProfileResult { profile: Profile; warnings: string[]; }
