@@ -1,3 +1,5 @@
+import type { ProfileLaunchProgress } from '@icrlogin/shared';
+
 export type ProfileStatusFilter='all'|'running'|'stopped'|'error';
 export type ProfileSort='lastUsed'|'name'|'browser';
 export type ProxyPresenceFilter='all'|'with'|'without';
@@ -10,3 +12,28 @@ export function nextProfileAction(runtimeState:string):'start'|'stop'|null{if(ru
 export function availableBulkActions(states:readonly string[]):BulkProfileAction[]{if(states.length===0)return[];const shared:BulkProfileAction[]=['moveGroup','assignProxy','addTags','removeTags'];if(states.every(state=>state==='stopped'))return['start',...shared,'delete'];if(states.every(state=>state==='running'))return['stop',...shared];return shared;}
 export function failedBulkIds(results:readonly {id:string;success:boolean}[]):string[]{return results.filter(result=>!result.success).map(result=>result.id);}
 export function profileCloneLabels(){return{config:'Clone configuration',full:'Clone full profile',template:'Save as template'} as const;}
+
+const PROFILE_LAUNCH_LABELS: Record<ProfileLaunchProgress['stage'], string> = {
+  idle: 'Idle',
+  'resolving-network': 'Resolving network…',
+  'resolving-geo': 'Resolving GeoIP…',
+  'downloading-browser': 'Downloading Chromium…',
+  'verifying-browser': 'Verifying Chromium…',
+  'installing-browser': 'Installing Chromium…',
+  'preparing-runtime': 'Preparing runtime…',
+  launching: 'Launching…',
+  'waiting-cdp': 'Connecting CDP…',
+  'applying-environment': 'Applying environment…',
+  running: 'Running',
+  failed: 'Failed'
+};
+
+export function profileLaunchProgressLabel(progress: ProfileLaunchProgress): string {
+  const percent = progress.percent === null ? '' : ` ${Math.round(progress.percent)}%`;
+  const stale = progress.staleNetworkIdentity ? ' · Geo cache' : '';
+  return `${PROFILE_LAUNCH_LABELS[progress.stage]}${percent}${stale}`;
+}
+
+export function isProfileLaunchActive(progress: ProfileLaunchProgress | undefined): boolean {
+  return Boolean(progress && progress.stage !== 'running' && progress.stage !== 'failed' && progress.stage !== 'idle');
+}
