@@ -14,6 +14,7 @@ export * from './logging/redaction.js';
 export * from './monitoring/process-monitor.js';
 export * from './network/egress-ip-resolver.js';
 export * from './network/geoip-service.js';
+export * from './network/geoip-updater.js';
 export * from './network/network-identity-resolver.js';
 export * from './recovery/startup-recovery.js';
 export * from './settings/app-settings-store.js';
