@@ -11,6 +11,10 @@ export const ProfileTemplateConfigSchema = z.object({
   userAgent: z.string().trim().min(1).max(1024).nullable().optional(),
   language: z.string().trim().min(1).max(64).optional(),
   timezone: z.string().trim().min(1).max(128).optional(),
+  environmentMode: z.enum(['auto', 'manual']).optional(),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  accuracy: z.number().nonnegative().nullable().optional(),
   windowWidth: positiveInt,
   windowHeight: positiveInt,
   screenWidth: positiveInt,
@@ -54,6 +58,10 @@ export interface ProfileTemplateConfig {
   userAgent?: string | null;
   language?: string;
   timezone?: string;
+  environmentMode?: 'auto' | 'manual';
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
   windowWidth?: number;
   windowHeight?: number;
   screenWidth?: number;
