@@ -9,6 +9,7 @@ export interface ChromiumLaunchInput {
   remoteDebuggingPort: number;
   proxy?: ProxyRuntimeConfig | null;
   extensionPaths?: readonly string[];
+  runtimeExtensionPaths?: readonly string[];
 }
 
 export interface SpawnOptions {
@@ -47,7 +48,7 @@ export function buildChromiumArgs(input: ChromiumLaunchInput): string[] {
 
   if (input.profile.userAgent) args.push(`--user-agent=${input.profile.userAgent}`);
   if (input.proxy) args.push(`--proxy-server=${buildProxyServerArg(input.proxy)}`);
-  const extensionPaths = [...new Set(input.extensionPaths ?? [])];
+  const extensionPaths = [...new Set([...(input.extensionPaths ?? []), ...(input.runtimeExtensionPaths ?? [])])];
   if (extensionPaths.length > 0) args.push(`--load-extension=${extensionPaths.join(',')}`);
   args.push(...input.profile.startupUrls);
   return args;
