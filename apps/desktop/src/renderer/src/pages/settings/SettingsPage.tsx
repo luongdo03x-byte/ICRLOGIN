@@ -7,13 +7,9 @@ import { RecoveryPage } from '../recovery/RecoveryPage.js';
 import { buildSettingsPatch, settingsDraftRequiresRestart } from './settings-model.js';
 import { updateAction, updateStateLabel } from './update-model.js';
 
-type SettingsTab = 'general' | 'api' | 'updates' | 'recovery' | 'about';
+type SettingsTab = 'general' | 'api' | 'geoip' | 'updates' | 'recovery' | 'about';
 
-function formatUpdateBytes(value: number | null): string {
-  if (value === null) return '—';
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
-}
+function formatUpdateBytes(value: number | null): string { if (value === null) return '—'; if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`; return `${(value / (1024 * 1024)).toFixed(1)} MiB`; }
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
@@ -21,93 +17,38 @@ export function SettingsPage() {
   const [tab, setTab] = useState<SettingsTab>('general');
   const [draft, setDraft] = useState<AppSettings | null>(null);
   const [message, setMessage] = useState('');
+  const [maxMindKey,setMaxMindKey]=useState('');
   const settings = useQuery({ queryKey: ['settings'], queryFn: icrClient.settings.get, staleTime: 30_000 });
   const about = useQuery({ queryKey: ['about'], queryFn: icrClient.about.get, staleTime: Infinity });
-  const updates = useQuery({
-    queryKey: ['app-update'],
-    queryFn: icrClient.updates.status,
-    refetchInterval: (query) => ['checking', 'downloading'].includes(query.state.data?.state ?? '') ? 1000 : false
-  });
+  const geoIp = useQuery({ queryKey: ['geoip'], queryFn: icrClient.geoIp.status, staleTime: 30_000 });
+  const updates = useQuery({ queryKey: ['app-update'], queryFn: icrClient.updates.status, refetchInterval: (query) => ['checking', 'downloading'].includes(query.state.data?.state ?? '') ? 1000 : false });
 
   useEffect(() => { if (settings.data) setDraft(settings.data); }, [settings.data]);
-
-  const patch = useMemo<UpdateAppSettings>(() => {
-    if (!settings.data || !draft) return {};
-    return buildSettingsPatch(settings.data, draft);
-  }, [settings.data, draft]);
+  const patch = useMemo<UpdateAppSettings>(() => { if (!settings.data || !draft) return {}; return buildSettingsPatch(settings.data, draft); }, [settings.data, draft]);
   const dirty = Object.keys(patch).length > 0;
   const restartDraft = Boolean(settings.data && draft && settingsDraftRequiresRestart(settings.data, draft));
 
-  const save = useMutation({
-    mutationFn: () => icrClient.settings.update(patch),
-    onSuccess: (result) => {
-      setDraft(result.settings);
-      queryClient.setQueryData(['settings'], result.settings);
-      setMessage(result.restartRequired ? 'Settings saved. Restart ICRLogin to apply the new local API port.' : 'Settings saved.');
-    },
-    onError: (error) => setMessage(error instanceof Error ? error.message : 'Unable to save settings.')
-  });
-
-  const updateOperation = useMutation({
-    mutationFn: (action: 'check' | 'download') => action === 'check' ? icrClient.updates.check() : icrClient.updates.download(),
-    onSuccess: (result) => queryClient.setQueryData(['app-update'], result),
-    onError: () => setMessage('Unable to complete the update operation.')
-  });
+  const save = useMutation({ mutationFn: () => icrClient.settings.update(patch), onSuccess: (result) => { setDraft(result.settings); queryClient.setQueryData(['settings'], result.settings); setMessage(result.restartRequired ? 'Settings saved. Restart ICRLogin to apply the new local API port.' : 'Settings saved.'); }, onError: (error) => setMessage(error instanceof Error ? error.message : 'Unable to save settings.') });
+  const updateOperation = useMutation({ mutationFn: (action: 'check' | 'download') => action === 'check' ? icrClient.updates.check() : icrClient.updates.download(), onSuccess: (result) => queryClient.setQueryData(['app-update'], result), onError: () => setMessage('Unable to complete the update operation.') });
+  const geoIpSave=useMutation({mutationFn:()=>icrClient.geoIp.setLicenseKey(maxMindKey),onSuccess:(result)=>{queryClient.setQueryData(['geoip'],result);setMaxMindKey('');setMessage(result.installed?'GeoLite2 City is ready.':'MaxMind key saved, but GeoLite2 City could not be installed.');},onError:error=>setMessage(error instanceof Error?error.message:'Unable to save MaxMind credentials.')});
+  const geoIpRefresh=useMutation({mutationFn:icrClient.geoIp.update,onSuccess:result=>{queryClient.setQueryData(['geoip'],result);setMessage(result.installed?'GeoLite2 City refreshed.':'GeoLite2 refresh did not produce a usable database.');},onError:error=>setMessage(error instanceof Error?error.message:'Unable to refresh GeoLite2 City.')});
 
   if (settings.isError) return <div className="page-frame"><div className="form-error">Unable to load settings.</div></div>;
   if (settings.isLoading || !draft) return <div className="page-frame"><div className="table-loading">Loading settings…</div></div>;
 
-  const update = updates.data;
-  const action = update ? updateAction(update) : null;
+  const update = updates.data; const action = update ? updateAction(update) : null;
   return <div className="page-frame settings-page">
-    <header className="page-header">
-      <div><p className="eyebrow">APPLICATION SETTINGS</p><h1>Settings</h1><p className="page-subtitle">Windows startup, desktop behavior, local API, updates, recovery and version readiness.</p></div>
-      {(tab === 'general' || tab === 'api') && <div className="page-header-actions"><button className="btn primary" type="button" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>{save.isPending ? 'Saving…' : 'Save settings'}</button></div>}
-    </header>
+    <header className="page-header"><div><p className="eyebrow">APPLICATION SETTINGS</p><h1>Settings</h1><p className="page-subtitle">Windows startup, desktop behavior, local API, GeoIP, updates, recovery and version readiness.</p></div>{(tab === 'general' || tab === 'api') && <div className="page-header-actions"><button className="btn primary" type="button" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>{save.isPending ? 'Saving…' : 'Save settings'}</button></div>}</header>
 
-    <div className="toolbar settings-tabs">
-      <button className={`btn ${tab === 'general' ? 'primary' : ''}`} onClick={() => setTab('general')}>General</button>
-      <button className={`btn ${tab === 'api' ? 'primary' : ''}`} onClick={() => setTab('api')}>Local API</button>
-      <button className={`btn ${tab === 'updates' ? 'primary' : ''}`} onClick={() => setTab('updates')}>Updates</button>
-      <button className={`btn ${tab === 'recovery' ? 'primary' : ''}`} onClick={() => setTab('recovery')}>Recovery & Monitoring</button>
-      <button className={`btn ${tab === 'about' ? 'primary' : ''}`} onClick={() => setTab('about')}>About</button>
-    </div>
-
+    <div className="toolbar settings-tabs"><button className={`btn ${tab === 'general' ? 'primary' : ''}`} onClick={() => setTab('general')}>General</button><button className={`btn ${tab === 'api' ? 'primary' : ''}`} onClick={() => setTab('api')}>Local API</button><button className={`btn ${tab === 'geoip' ? 'primary' : ''}`} onClick={() => setTab('geoip')}>GeoIP</button><button className={`btn ${tab === 'updates' ? 'primary' : ''}`} onClick={() => setTab('updates')}>Updates</button><button className={`btn ${tab === 'recovery' ? 'primary' : ''}`} onClick={() => setTab('recovery')}>Recovery & Monitoring</button><button className={`btn ${tab === 'about' ? 'primary' : ''}`} onClick={() => setTab('about')}>About</button></div>
     {message && <div className="info-panel settings-message">{message}</div>}
 
-    {tab === 'general' && <div className="settings-grid">
-      <section className="settings-card"><div><h2>{t('settings.language')}</h2><p className="muted">{t('settings.languageDescription')}</p></div><label className="field"><span>{t('settings.language')}</span><select aria-label={t('settings.language')} value={locale} onChange={(event) => setLocale(event.target.value === 'en' ? 'en' : 'vi')}><option value="vi">Tiếng Việt</option><option value="en">English</option></select><small>{locale === 'vi' ? 'Thay đổi được áp dụng ngay và được ghi nhớ cho lần mở sau.' : 'Changes apply immediately and are remembered for the next launch.'}</small></label></section>
-      <section className="settings-card"><div><h2>Windows startup</h2><p className="muted">Start ICRLogin automatically after you sign in to Windows.</p></div><label className="settings-toggle"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })}/><span>Launch ICRLogin with Windows</span></label></section>
-      <section className="settings-card"><div><h2>Close behavior</h2><p className="muted">Running Chromium profiles are never force-stopped when the desktop closes.</p></div><label className="field"><span>When closing ICRLogin</span><select value={draft.closeBehavior} onChange={(event) => setDraft({ ...draft, closeBehavior: event.target.value as AppSettings['closeBehavior'] })}><option value="ask">Ask if browser profiles are still running</option><option value="tray">Hide ICRLogin to the system tray</option><option value="quit">Quit without prompting</option></select><small>Tray mode keeps the desktop process available while managed Chromium continues running independently.</small></label></section>
-    </div>}
-
+    {tab === 'general' && <div className="settings-grid"><section className="settings-card"><div><h2>{t('settings.language')}</h2><p className="muted">{t('settings.languageDescription')}</p></div><label className="field"><span>{t('settings.language')}</span><select aria-label={t('settings.language')} value={locale} onChange={(event) => setLocale(event.target.value === 'en' ? 'en' : 'vi')}><option value="vi">Tiếng Việt</option><option value="en">English</option></select><small>{locale === 'vi' ? 'Thay đổi được áp dụng ngay và được ghi nhớ cho lần mở sau.' : 'Changes apply immediately and are remembered for the next launch.'}</small></label></section><section className="settings-card"><div><h2>Windows startup</h2><p className="muted">Start ICRLogin automatically after you sign in to Windows.</p></div><label className="settings-toggle"><input type="checkbox" checked={draft.launchAtLogin} onChange={(event) => setDraft({ ...draft, launchAtLogin: event.target.checked })}/><span>Launch ICRLogin with Windows</span></label></section><section className="settings-card"><div><h2>Close behavior</h2><p className="muted">Running Chromium profiles are never force-stopped when the desktop closes.</p></div><label className="field"><span>When closing ICRLogin</span><select value={draft.closeBehavior} onChange={(event) => setDraft({ ...draft, closeBehavior: event.target.value as AppSettings['closeBehavior'] })}><option value="ask">Ask if browser profiles are still running</option><option value="tray">Hide ICRLogin to the system tray</option><option value="quit">Quit without prompting</option></select><small>Tray mode keeps the desktop process available while managed Chromium continues running independently.</small></label></section></div>}
     {tab === 'api' && <div className="settings-grid"><section className="settings-card"><div><h2>Local automation API</h2><p className="muted">The listener remains bound to 127.0.0.1 only.</p></div><label className="field"><span>Port</span><input type="number" min={1} max={65535} value={draft.localApiPort} onChange={(event) => setDraft({ ...draft, localApiPort: Number(event.target.value) })}/><small>Default: 9495. Port changes take effect after restarting ICRLogin.</small></label>{restartDraft && <div className="settings-restart-note">Restart required after saving this port change.</div>}</section></div>}
+    {tab === 'geoip' && <div className="settings-grid"><section className="settings-card"><div><h2>MaxMind GeoLite2 City</h2><p className="muted">Used locally to synchronize timezone and geolocation with the actual public egress IP. The database is refreshed automatically every 7 days.</p></div>{geoIp.isLoading?<div className="table-loading">Loading GeoIP status…</div>:geoIp.isError||!geoIp.data?<div className="form-error">Unable to read GeoIP status.</div>:<><div className="review-grid"><div><span>Database</span><strong>{geoIp.data.installed?'Installed':'Missing'}</strong></div><div><span>MaxMind credential</span><strong>{geoIp.data.credentialConfigured?'Configured':'Not configured'}</strong></div><div><span>Last modified</span><strong>{geoIp.data.lastModifiedAt?new Date(geoIp.data.lastModifiedAt).toLocaleString():'—'}</strong></div><div><span>Update state</span><strong>{geoIp.data.updateState}</strong></div></div><label className="field"><span>MaxMind license key</span><input type="password" autoComplete="off" value={maxMindKey} onChange={event=>setMaxMindKey(event.target.value)} placeholder={geoIp.data.credentialConfigured?'Enter a new key to replace the stored credential':'Enter your MaxMind license key'}/><small>The key is encrypted with Electron safeStorage and is never returned to this screen after saving.</small></label><div className="page-header-actions"><button className="btn primary" disabled={geoIpSave.isPending||maxMindKey.trim().length<8} onClick={()=>geoIpSave.mutate()}>{geoIpSave.isPending?'Saving & downloading…':'Save key & download'}</button><button className="btn" disabled={geoIpRefresh.isPending||!geoIp.data.credentialConfigured} onClick={()=>geoIpRefresh.mutate()}>{geoIpRefresh.isPending?'Refreshing…':'Refresh database now'}</button></div></>}</section></div>}
 
-    {tab === 'updates' && <div className="settings-grid"><section className="settings-card settings-update-card">
-      <div><h2>ICRLogin application updates</h2><p className="muted">Updates affect the desktop application only. Managed Chromium versions are updated separately in Browser Manager.</p></div>
-      {updates.isLoading ? <div className="table-loading">Loading update status…</div> : updates.isError || !update ? <div className="form-error">Unable to read update status.</div> : <>
-        <div className="review-grid"><div><span>Installed</span><strong>{update.currentVersion}</strong></div><div><span>Available</span><strong>{update.availableVersion ?? '—'}</strong></div><div><span>Status</span><strong>{updateStateLabel(update)}</strong></div><div><span>Progress</span><strong>{update.progressPercent === null ? '—' : `${update.progressPercent.toFixed(0)}%`} {update.totalBytes ? `(${formatUpdateBytes(update.transferredBytes)} / ${formatUpdateBytes(update.totalBytes)})` : ''}</strong></div></div>
-        {update.state === 'disabled' && <div className="settings-restart-note">Application updates are disabled in unpackaged development builds or when no valid HTTPS update feed is configured.</div>}
-        {update.state === 'downloaded' && <div className="info-panel">The signed update is downloaded. It will be installed on the next normal ICRLogin quit. Running Chromium profiles are not force-stopped.</div>}
-        {action && <div><button className="btn primary" type="button" disabled={updateOperation.isPending} onClick={() => updateOperation.mutate(action)}>{updateOperation.isPending ? 'Working…' : action === 'check' ? 'Check for updates' : 'Download update'}</button></div>}
-      </>}
-    </section></div>}
-
+    {tab === 'updates' && <div className="settings-grid"><section className="settings-card settings-update-card"><div><h2>ICRLogin application updates</h2><p className="muted">Updates affect the desktop application only. Managed Chromium versions are updated separately in Browser Manager.</p></div>{updates.isLoading ? <div className="table-loading">Loading update status…</div> : updates.isError || !update ? <div className="form-error">Unable to read update status.</div> : <><div className="review-grid"><div><span>Installed</span><strong>{update.currentVersion}</strong></div><div><span>Available</span><strong>{update.availableVersion ?? '—'}</strong></div><div><span>Status</span><strong>{updateStateLabel(update)}</strong></div><div><span>Progress</span><strong>{update.progressPercent === null ? '—' : `${update.progressPercent.toFixed(0)}%`} {update.totalBytes ? `(${formatUpdateBytes(update.transferredBytes)} / ${formatUpdateBytes(update.totalBytes)})` : ''}</strong></div></div>{update.state === 'disabled' && <div className="settings-restart-note">Application updates are disabled in unpackaged development builds or when no valid HTTPS update feed is configured.</div>}{update.state === 'downloaded' && <div className="info-panel">The signed update is downloaded. It will be installed on the next normal ICRLogin quit. Running Chromium profiles are not force-stopped.</div>}{action && <div><button className="btn primary" type="button" disabled={updateOperation.isPending} onClick={() => updateOperation.mutate(action)}>{updateOperation.isPending ? 'Working…' : action === 'check' ? 'Check for updates' : 'Download update'}</button></div>}</>}</section></div>}
     {tab === 'recovery' && <div className="settings-recovery"><RecoveryPage /></div>}
-
-    {tab === 'about' && <div className="settings-grid"><section className="settings-card">
-      <div><h2>ICRLogin V1 readiness</h2><p className="muted">Public version matrix and startup readiness for this installed build.</p></div>
-      {about.isLoading ? <div className="table-loading">Loading build information…</div> : about.isError || !about.data ? <div className="form-error">Unable to read build information.</div> : <>
-        <div className="review-grid">
-          <div><span>ICRLogin</span><strong>{about.data.appVersion}</strong></div>
-          <div><span>Build</span><strong>{about.data.packaged ? 'Packaged' : 'Development'}</strong></div>
-          <div><span>Local API</span><strong>v{about.data.localApiVersion}</strong></div>
-          <div><span>Database schema</span><strong>v{about.data.databaseSchemaVersion}</strong></div>
-          <div><span>Backup format</span><strong>v{about.data.backupFormatVersion}</strong></div>
-          <div><span>Runtime readiness</span><strong>{about.data.runtimeReadiness === 'operational' ? 'Operational' : 'Recovery required'}</strong></div>
-        </div>
-        {!about.data.databaseHealthy && <div className="settings-restart-note">SQLite integrity requires recovery. Operational profile/browser APIs remain disabled until the database is healthy.</div>}
-      </>}
-    </section></div>}
+    {tab === 'about' && <div className="settings-grid"><section className="settings-card"><div><h2>ICRLogin V1 readiness</h2><p className="muted">Public version matrix and startup readiness for this installed build.</p></div>{about.isLoading ? <div className="table-loading">Loading build information…</div> : about.isError || !about.data ? <div className="form-error">Unable to read build information.</div> : <><div className="review-grid"><div><span>ICRLogin</span><strong>{about.data.appVersion}</strong></div><div><span>Build</span><strong>{about.data.packaged ? 'Packaged' : 'Development'}</strong></div><div><span>Local API</span><strong>v{about.data.localApiVersion}</strong></div><div><span>Database schema</span><strong>v{about.data.databaseSchemaVersion}</strong></div><div><span>Backup format</span><strong>v{about.data.backupFormatVersion}</strong></div><div><span>Runtime readiness</span><strong>{about.data.runtimeReadiness === 'operational' ? 'Operational' : 'Recovery required'}</strong></div></div>{!about.data.databaseHealthy && <div className="settings-restart-note">SQLite integrity requires recovery. Operational profile/browser APIs remain disabled until the database is healthy.</div>}</>}</section></div>}
   </div>;
 }
