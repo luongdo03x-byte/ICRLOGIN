@@ -1,6 +1,7 @@
 import { AppError, type BrowserManifestEntry } from '@icrlogin/shared';
 import type {
   BrowserArtifactProvider,
+  BrowserDownloadProgress,
   BrowserDownloadProgressCallback,
   InstalledBrowser
 } from './artifact-provider.js';
@@ -18,8 +19,14 @@ export interface BrowserVersionServiceOptions {
   uninstaller?: BrowserArtifactUninstaller;
 }
 
+interface InstallFlight {
+  promise: Promise<InstalledBrowser>;
+  listeners: Set<BrowserDownloadProgressCallback>;
+  latest: BrowserDownloadProgress | null;
+}
+
 export class BrowserVersionService {
-  private readonly installFlights = new Map<string, Promise<InstalledBrowser>>();
+  private readonly installFlights = new Map<string, InstallFlight>();
 
   constructor(
     private readonly provider: BrowserArtifactProvider,
@@ -34,6 +41,10 @@ export class BrowserVersionService {
 
   listInstalled(): InstalledBrowser[] {
     return this.repository.list();
+  }
+
+  isInstalled(version: string): boolean {
+    return this.repository.get(version) !== null;
   }
 
   getUsageCount(version: string): number {
@@ -56,10 +67,13 @@ export class BrowserVersionService {
     return this.installSingleFlight(version, onProgress, 'BROWSER_DOWNLOAD_FAILED');
   }
 
-  async ensureInstalled(version: string): Promise<InstalledBrowser> {
+  async ensureInstalled(
+    version: string,
+    onProgress?: BrowserDownloadProgressCallback
+  ): Promise<InstalledBrowser> {
     const installed = this.repository.get(version);
     if (installed) return installed;
-    return this.installSingleFlight(version, undefined, 'BROWSER_NOT_INSTALLED');
+    return this.installSingleFlight(version, onProgress, 'BROWSER_NOT_INSTALLED');
   }
 
   async remove(version: string): Promise<void> {
@@ -81,20 +95,38 @@ export class BrowserVersionService {
     missingInstallerCode: 'BROWSER_DOWNLOAD_FAILED' | 'BROWSER_NOT_INSTALLED'
   ): Promise<InstalledBrowser> {
     const existing = this.installFlights.get(version);
-    if (existing) return existing;
+    if (existing) {
+      if (onProgress) {
+        existing.listeners.add(onProgress);
+        if (existing.latest) onProgress(existing.latest);
+      }
+      return existing.promise;
+    }
 
-    const flight = (async () => {
+    const listeners = new Set<BrowserDownloadProgressCallback>();
+    if (onProgress) listeners.add(onProgress);
+    const flight: InstallFlight = {
+      promise: Promise.resolve(null as unknown as InstalledBrowser),
+      listeners,
+      latest: null
+    };
+    const broadcast: BrowserDownloadProgressCallback = (progress) => {
+      flight.latest = progress;
+      for (const listener of flight.listeners) listener(progress);
+    };
+
+    flight.promise = (async () => {
       const installed = this.repository.get(version);
       if (installed) return installed;
       const entry = await this.findAvailable(version);
       if (!this.installer) throw new AppError(missingInstallerCode, `Browser version ${version} cannot be installed`);
-      const result = await this.installer(entry, onProgress);
+      const result = await this.installer(entry, broadcast);
       return this.repository.markInstalled(result);
     })();
 
     this.installFlights.set(version, flight);
     try {
-      return await flight;
+      return await flight.promise;
     } finally {
       if (this.installFlights.get(version) === flight) this.installFlights.delete(version);
     }
