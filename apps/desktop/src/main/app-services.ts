@@ -63,7 +63,7 @@ export interface AppServices {
   profileMutations: ProfileMutationCoordinator; registry: ProcessRegistry; runtimeSessions: RuntimeSessionRepository;
   backups: BackupHistoryRepository; profileBackups: ProfileBackupService; profileRestore: ProfileRestoreService;
   profileConfigTransfer: ProfileConfigTransferService; databaseBackups: DatabaseBackupService; monitoring: ProcessMonitor;
-  launchProgress: ProfileLaunchProgressHub; geoIp: GeoIpService;
+  launchProgress: ProfileLaunchProgressHub; launchCoordinator: ProfileLaunchCoordinator; geoIp: GeoIpService;
 }
 export interface CreateAppServicesOptions { db: Database; paths: AppPaths; secretStore: SecretStore; browserArtifactProvider: BrowserArtifactProvider; browserArtifactInstaller?: BrowserArtifactInstaller; cdpWaiter?: CdpWaiter; registry?: ProcessRegistry; processMetricsReader?: ProcessMetricsReader; }
 
@@ -166,5 +166,5 @@ export function createAppServices(options: CreateAppServicesOptions): AppService
     }
   });
 
-  return { profiles, groups, proxies, proxyConnectivity, tags, extensions, browserVersions, browsers, profileClones, templates, bulk, profileMutations, registry, runtimeSessions, backups: backupHistory, profileBackups, profileRestore, profileConfigTransfer, databaseBackups, monitoring, launchProgress, geoIp };
+  return { profiles, groups, proxies, proxyConnectivity, tags, extensions, browserVersions, browsers, profileClones, templates, bulk, profileMutations, registry, runtimeSessions, backups: backupHistory, profileBackups, profileRestore, profileConfigTransfer, databaseBackups, monitoring, launchProgress, launchCoordinator, geoIp };
 }
