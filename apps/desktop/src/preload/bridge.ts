@@ -5,11 +5,14 @@ import {
   PHASE7_DESKTOP_CHANNELS,
   PHASE8_DESKTOP_CHANNELS,
   PHASE10_DESKTOP_CHANNELS,
+  RUNTIME_DESKTOP_CHANNELS,
   type ApiEnvelope,
   type BackupMode,
   type BrowserDownloadProgressEvent,
+  type GeoIpStatus,
   type IcrDesktopApiV10,
   type ProfileCloneMode,
+  type ProfileLaunchProgress,
   type UpdateAppSettings
 } from '@icrlogin/shared';
 
@@ -20,8 +23,18 @@ export function createPublicBridge(invoke:DesktopInvoke,subscribe:DesktopSubscri
   return Object.freeze({
     health:()=>invoke(DESKTOP_CHANNELS.health),
     profiles:Object.freeze({
-      list:()=>invoke(DESKTOP_CHANNELS.profilesList),get:(id:string)=>invoke(DESKTOP_CHANNELS.profilesGet,{id}),create:(input:unknown)=>invoke(DESKTOP_CHANNELS.profilesCreate,{input}),update:(id:string,input:unknown)=>invoke(DESKTOP_CHANNELS.profilesUpdate,{id,input}),delete:(id:string)=>invoke(DESKTOP_CHANNELS.profilesDelete,{id}),restore:(id:string)=>invoke(DESKTOP_CHANNELS.profilesRestore,{id}),start:(id:string)=>invoke(DESKTOP_CHANNELS.profilesStart,{id}),stop:(id:string)=>invoke(DESKTOP_CHANNELS.profilesStop,{id}),clone:(sourceId:string,mode:ProfileCloneMode,overrides?:unknown)=>invoke(DESKTOP_CHANNELS.profilesClone,{sourceId,mode,overrides})
+      list:()=>invoke(DESKTOP_CHANNELS.profilesList),get:(id:string)=>invoke(DESKTOP_CHANNELS.profilesGet,{id}),create:(input:unknown)=>invoke(DESKTOP_CHANNELS.profilesCreate,{input}),update:(id:string,input:unknown)=>invoke(DESKTOP_CHANNELS.profilesUpdate,{id,input}),delete:(id:string)=>invoke(DESKTOP_CHANNELS.profilesDelete,{id}),restore:(id:string)=>invoke(DESKTOP_CHANNELS.profilesRestore,{id}),start:(id:string)=>invoke(RUNTIME_DESKTOP_CHANNELS.profileStart,{id}),stop:(id:string)=>invoke(DESKTOP_CHANNELS.profilesStop,{id}),clone:(sourceId:string,mode:ProfileCloneMode,overrides?:unknown)=>invoke(DESKTOP_CHANNELS.profilesClone,{sourceId,mode,overrides})
     }),
+    runtime:Object.freeze({
+      start:(id:string)=>invoke(RUNTIME_DESKTOP_CHANNELS.profileStart,{id}),
+      diagnostics:(id:string)=>invoke(RUNTIME_DESKTOP_CHANNELS.profileRuntimeDiagnostics,{id}),
+      onLaunchProgress:(listener:(progress:ProfileLaunchProgress)=>void)=>subscribe(RUNTIME_DESKTOP_CHANNELS.profileLaunchProgress,payload=>listener(payload as ProfileLaunchProgress))
+    }),
+    geoIp:Object.freeze({
+      status:()=>invoke(RUNTIME_DESKTOP_CHANNELS.geoIpStatus),
+      setLicenseKey:(licenseKey:string)=>invoke(RUNTIME_DESKTOP_CHANNELS.geoIpSetLicenseKey,{licenseKey}),
+      update:()=>invoke(RUNTIME_DESKTOP_CHANNELS.geoIpUpdate)
+    }) as {status:()=>Promise<ApiEnvelope<GeoIpStatus>>;setLicenseKey:(licenseKey:string)=>Promise<ApiEnvelope<GeoIpStatus>>;update:()=>Promise<ApiEnvelope<GeoIpStatus>>},
     groups:Object.freeze({list:()=>invoke(DESKTOP_CHANNELS.groupsList),create:(input:unknown)=>invoke(DESKTOP_CHANNELS.groupsCreate,{input}),update:(id:string,input:unknown)=>invoke(DESKTOP_CHANNELS.groupsUpdate,{id,input}),delete:(id:string)=>invoke(DESKTOP_CHANNELS.groupsDelete,{id})}),
     proxies:Object.freeze({list:()=>invoke(DESKTOP_CHANNELS.proxiesList),get:(id:string)=>invoke(DESKTOP_CHANNELS.proxiesGet,{id}),create:(input:unknown)=>invoke(DESKTOP_CHANNELS.proxiesCreate,{input}),update:(id:string,input:unknown)=>invoke(DESKTOP_CHANNELS.proxiesUpdate,{id,input}),delete:(id:string)=>invoke(DESKTOP_CHANNELS.proxiesDelete,{id})}),
     tags:Object.freeze({list:()=>invoke(DESKTOP_CHANNELS.tagsList),create:(input:unknown)=>invoke(DESKTOP_CHANNELS.tagsCreate,{input}),update:(id:string,input:unknown)=>invoke(DESKTOP_CHANNELS.tagsUpdate,{id,input}),delete:(id:string)=>invoke(DESKTOP_CHANNELS.tagsDelete,{id}),setProfile:(id:string,tagIds:string[])=>invoke(DESKTOP_CHANNELS.tagsSetProfile,{id,tagIds})}),
