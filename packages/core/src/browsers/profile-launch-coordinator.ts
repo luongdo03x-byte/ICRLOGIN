@@ -55,7 +55,13 @@ export class ProfileLaunchProgressHub {
 }
 
 export class ProfileLaunchCoordinator {
+  private readonly effectiveEnvironments = new Map<string, EffectiveRuntimeEnvironment>();
+
   constructor(private readonly deps: ProfileLaunchCoordinatorDependencies) {}
+
+  getEffectiveEnvironment(profileId: string): EffectiveRuntimeEnvironment | null {
+    return this.effectiveEnvironments.get(profileId) ?? null;
+  }
 
   publish(
     profileId: string,
@@ -105,6 +111,7 @@ export class ProfileLaunchCoordinator {
 
       this.publish(profile.id, 'preparing-runtime', { staleNetworkIdentity: networkIdentity.stale });
       const environment = this.deps.environmentResolver.resolve(profile, networkIdentity);
+      this.effectiveEnvironments.set(profile.id, environment);
       runtimeExtension = await this.deps.proxyRuntimeExtension.prepare(profile.id, proxy, {
         protectWebRtc: environment.protectWebRtc
       });
