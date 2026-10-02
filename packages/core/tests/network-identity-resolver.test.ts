@@ -32,12 +32,38 @@ describe('NetworkIdentityResolver', () => {
     await expect(resolver.resolve('proxy:p1', null)).resolves.toEqual({ ...cached, stale: true });
   });
 
-  it('does not hide a proxy connection failure behind cache', async () => {
+  it('allows manual environment launch without a resolved egress IP when no cache exists', async () => {
+    const resolver = new NetworkIdentityResolver(
+      { resolve: async () => { throw new AppError('EGRESS_IP_RESOLUTION_FAILED', 'echo endpoints unavailable'); } },
+      { lookup: async () => { throw new Error('should not run'); } },
+      { get: () => null, upsert: (record: any) => record }
+    );
+
+    await expect(resolver.resolve('proxy:p1', {} as any, {
+      allowUnlocatedIdentity: true,
+      now: () => '2026-10-02T00:00:00.000Z'
+    })).resolves.toEqual({
+      routeKey: 'proxy:p1', publicIp: null, countryIso: null, cityName: null, timezone: null,
+      latitude: null, longitude: null, accuracy: null, resolvedAt: '2026-10-02T00:00:00.000Z',
+      sourceDbVersion: null, stale: false
+    });
+  });
+
+  it('keeps auto environment strict when egress lookup fails and no cache exists', async () => {
+    const resolver = new NetworkIdentityResolver(
+      { resolve: async () => { throw new AppError('EGRESS_IP_RESOLUTION_FAILED', 'echo failed'); } },
+      { lookup: async () => { throw new Error('should not run'); } },
+      { get: () => null, upsert: (record: any) => record }
+    );
+    await expect(resolver.resolve('direct', null)).rejects.toMatchObject({ code: 'EGRESS_IP_RESOLUTION_FAILED' });
+  });
+
+  it('does not hide a definitive proxy connection failure behind cache or manual mode', async () => {
     const resolver = new NetworkIdentityResolver(
       { resolve: async () => { throw new AppError('PROXY_CONNECTION_FAILED', 'proxy offline'); } },
       { lookup: async () => { throw new Error('should not run'); } },
       { get: () => ({ routeKey: 'proxy:p1' } as any), upsert: (record: any) => record }
     );
-    await expect(resolver.resolve('proxy:p1', null)).rejects.toMatchObject({ code: 'PROXY_CONNECTION_FAILED' });
+    await expect(resolver.resolve('proxy:p1', {} as any, { allowUnlocatedIdentity: true })).rejects.toMatchObject({ code: 'PROXY_CONNECTION_FAILED' });
   });
 });
