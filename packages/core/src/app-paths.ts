@@ -12,6 +12,7 @@ export interface AppPaths {
   logsDir: string;
   trashDir: string;
   configDir: string;
+  geoIpDir: string;
 }
 
 export function createAppPaths(root: string): AppPaths {
@@ -26,7 +27,8 @@ export function createAppPaths(root: string): AppPaths {
     downloadsTempDir: resolve(canonicalRoot, 'downloads', 'temp'),
     logsDir: resolve(canonicalRoot, 'logs'),
     trashDir: resolve(canonicalRoot, 'trash'),
-    configDir: resolve(canonicalRoot, 'config')
+    configDir: resolve(canonicalRoot, 'config'),
+    geoIpDir: resolve(canonicalRoot, 'geoip')
   };
 }
 
