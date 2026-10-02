@@ -39,6 +39,7 @@ export * from './repositories/backup-history-repository.js';
 export * from './repositories/browser-version-repository.js';
 export * from './repositories/extension-repository.js';
 export * from './repositories/group-repository.js';
+export * from './repositories/network-identity-cache-repository.js';
 export * from './repositories/profile-repository.js';
 export * from './repositories/profile-template-repository.js';
 export * from './repositories/proxy-repository.js';
