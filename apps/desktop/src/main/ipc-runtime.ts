@@ -60,6 +60,14 @@ export function registerRuntimeIpcHandlers(
   }));
 
   ipcMain.handle(RUNTIME_DESKTOP_CHANNELS.geoIpStatus, () => respond(() => geoIpRuntime.status()));
-  ipcMain.handle(RUNTIME_DESKTOP_CHANNELS.geoIpSetLicenseKey, (_event, payload) => respond(() => geoIpRuntime.setLicenseKey(parseLicenseKey(payload))));
-  ipcMain.handle(RUNTIME_DESKTOP_CHANNELS.geoIpUpdate, () => respond(() => geoIpRuntime.update()));
+  ipcMain.handle(RUNTIME_DESKTOP_CHANNELS.geoIpSetLicenseKey, (_event, payload) => respond(async () => {
+    const status = await geoIpRuntime.setLicenseKey(parseLicenseKey(payload));
+    services.geoIp.invalidate();
+    return status;
+  }));
+  ipcMain.handle(RUNTIME_DESKTOP_CHANNELS.geoIpUpdate, () => respond(async () => {
+    const status = await geoIpRuntime.update();
+    services.geoIp.invalidate();
+    return status;
+  }));
 }
