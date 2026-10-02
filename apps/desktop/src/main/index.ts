@@ -27,7 +27,9 @@ import {
   resolveLocalApiSettings
 } from './config.js';
 import { createElectronUpdateAdapter } from './electron-update-adapter.js';
+import { GeoIpRuntimeController } from './geoip-runtime-controller.js';
 import { registerIpcHandlers } from './ipc.js';
+import { registerRuntimeIpcHandlers } from './ipc-runtime.js';
 import { registerPhase5IpcHandlers } from './ipc-phase5.js';
 import { registerPhase6IpcHandlers } from './ipc-phase6.js';
 import { registerPhase7IpcHandlers } from './ipc-phase7.js';
@@ -79,6 +81,9 @@ async function bootstrap(): Promise<void> {
     await runMigrations(db, { beforeMigration: () => databaseBackups.create('migration').then(() => undefined) });
 
     const secretStore = new ElectronSafeStorageSecretStore(safeStorage);
+    const geoIpRuntime = new GeoIpRuntimeController(paths, safeStorage);
+    await geoIpRuntime.initialize().catch(() => undefined);
+
     const manifestSettings = resolveBrowserManifestSettings(paths, process.env.ICRLOGIN_BROWSER_MANIFEST_URL);
     const browserArtifactProvider = manifestSettings.manifestUrl
       ? new HttpBrowserArtifactProvider(manifestSettings.manifestUrl, manifestSettings.cachePath)
@@ -97,6 +102,7 @@ async function bootstrap(): Promise<void> {
     services.monitoring.start();
 
     registerIpcHandlers(ipcMain, services, { dataRootLabel: maskDataRoot(dataRoot) });
+    registerRuntimeIpcHandlers(ipcMain, services, geoIpRuntime);
     registerPhase5IpcHandlers(ipcMain, services, {
       async selectRestoreBackup() {
         const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'ICRLogin Backup', extensions: ['icrbackup'] }] });
