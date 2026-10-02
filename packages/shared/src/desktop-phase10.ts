@@ -1,5 +1,6 @@
 import type { ApiEnvelope } from './desktop-api.js';
 import type { IcrDesktopApiV8 } from './desktop-phase8.js';
+import type { IcrRuntimeDesktopApi } from './desktop-runtime.js';
 
 export const PHASE10_DESKTOP_CHANNELS = {
   aboutGet: 'icr:about:get'
@@ -21,4 +22,4 @@ export interface IcrPhase10DesktopApi {
   };
 }
 
-export type IcrDesktopApiV10 = IcrDesktopApiV8 & IcrPhase10DesktopApi;
+export type IcrDesktopApiV10 = IcrDesktopApiV8 & IcrPhase10DesktopApi & IcrRuntimeDesktopApi;
