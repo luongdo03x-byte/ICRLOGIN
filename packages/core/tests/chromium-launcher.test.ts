@@ -18,6 +18,10 @@ const profile: Profile = {
   userAgent: 'ICRLogin-Test-UA',
   language: 'en-US',
   timezone: 'UTC',
+  environmentMode: 'auto',
+  latitude: null,
+  longitude: null,
+  accuracy: null,
   windowWidth: 1280,
   windowHeight: 800,
   screenWidth: 1920,
@@ -56,6 +60,22 @@ describe('chromium launcher', () => {
     expect(args.join(' ').includes('0.0.0.0')).toBe(false);
     expect(args.slice(-2)[0]).toBe('https://one.example/');
     expect(args.slice(-2)[1]).toBe('https://two.example/');
+  });
+
+  it('loads user and runtime extensions while keeping startup URLs deferred when requested', () => {
+    const args = buildChromiumArgs({
+      profile,
+      executablePath: 'C:/ICRLogin/browsers/143/chrome.exe',
+      profileUserDataDir: 'C:/ICRLogin/profiles/p1/user-data',
+      remoteDebuggingPort: 43127,
+      proxy,
+      extensionPaths: ['C:/user-ext'],
+      runtimeExtensionPaths: ['C:/runtime-ext'],
+      deferStartupUrls: true
+    });
+    expect(args).toContain('--load-extension=C:/user-ext,C:/runtime-ext');
+    expect(args).not.toContain('https://one.example/');
+    expect(args).not.toContain('https://two.example/');
   });
 
   it('spawns with an argument array and shell disabled, then exposes close hooks', async () => {
