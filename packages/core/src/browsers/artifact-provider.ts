@@ -14,7 +14,10 @@ export interface InstalledBrowser {
   installedAt: string;
 }
 
+export type BrowserInstallPhase = 'downloading' | 'verifying' | 'installing';
+
 export interface BrowserDownloadProgress {
+  phase: BrowserInstallPhase;
   receivedBytes: number;
   totalBytes: number | null;
   percent: number | null;
