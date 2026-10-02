@@ -10,6 +10,7 @@ export interface ChromiumLaunchInput {
   proxy?: ProxyRuntimeConfig | null;
   extensionPaths?: readonly string[];
   runtimeExtensionPaths?: readonly string[];
+  deferStartupUrls?: boolean;
 }
 
 export interface SpawnOptions {
@@ -50,7 +51,8 @@ export function buildChromiumArgs(input: ChromiumLaunchInput): string[] {
   if (input.proxy) args.push(`--proxy-server=${buildProxyServerArg(input.proxy)}`);
   const extensionPaths = [...new Set([...(input.extensionPaths ?? []), ...(input.runtimeExtensionPaths ?? [])])];
   if (extensionPaths.length > 0) args.push(`--load-extension=${extensionPaths.join(',')}`);
-  args.push(...input.profile.startupUrls);
+  if (input.deferStartupUrls) args.push('about:blank');
+  else args.push(...input.profile.startupUrls);
   return args;
 }
 
